@@ -42,19 +42,7 @@ internal sealed class TriggerMap
                 if (key.IsMedia)
                     throw new FormatException("미디어 키는 트리거로 못 써. 패드 설정(layers)에 직접 넣어줘.");
 
-                var keys = new List<Chord>();
-                foreach (var step in action.Keys ?? new())
-                {
-                    foreach (var c in Chord.ParseSequence(step))
-                    {
-                        if (c.Key is { Vk: null })
-                            throw new FormatException($"'{c.Key.Name}' 키는 PC에서 보낼 수 없어.");
-                        keys.Add(c);
-                    }
-                }
-
-                if (string.IsNullOrWhiteSpace(action.Run) && keys.Count == 0 && string.IsNullOrEmpty(action.Text))
-                    throw new FormatException("run / keys / text 중 하나는 있어야 해.");
+                var keys = action.ParseKeys();
 
                 var trigger = new Trigger(name, vk, chord.ModifierFlags, action, keys);
                 if (!map.TryAdd((vk, trigger.Modifiers), trigger))

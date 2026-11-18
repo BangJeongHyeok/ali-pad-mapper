@@ -35,6 +35,7 @@ public static class KeyTable
 {
     private static readonly Dictionary<string, KeyInfo> Keys = new(StringComparer.OrdinalIgnoreCase);
     private static readonly Dictionary<string, ModifierKey> Modifiers = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<ushort, KeyInfo> ByVk = new();
 
     static KeyTable()
     {
@@ -47,8 +48,15 @@ public static class KeyTable
 
     public static bool TryGetModifier(string name, out ModifierKey modifier) => Modifiers.TryGetValue(name, out modifier);
 
+    /// <summary>Windows 가상 키 코드 → 키 (편집기에서 "키 눌러서 입력"용). 같은 VK를 쓰는 키가 여럿이면 먼저 등록된 것.</summary>
+    public static bool TryGetByVk(ushort vk, [System.Diagnostics.CodeAnalysis.MaybeNullWhen(false)] out KeyInfo key)
+        => ByVk.TryGetValue(vk, out key);
+
     /// <summary>문서/도움말 출력용: 대표 이름 목록</summary>
     public static IEnumerable<KeyInfo> AllKeys => Keys.Values.Distinct();
+
+    /// <summary>미디어 키 목록 (등록 순서)</summary>
+    public static IEnumerable<KeyInfo> MediaKeys => AllKeys.Where(k => k.IsMedia);
 
     /// <summary>패드 펌웨어에서 쓰는 수식 키 번호 (vendor 프로그램 캡처 기준: Ctrl=F1, Shift=F2, Alt=F3, Win=F4, 오른쪽은 F5~F8)</summary>
     public static byte PadCode(ModifierKey m) => m switch
@@ -95,12 +103,14 @@ public static class KeyTable
     {
         var info = new KeyInfo(names[0], hid, vk, extended);
         foreach (var n in names) Keys[n] = info;
+        if (vk is { } v) ByVk.TryAdd(v, info);
     }
 
     private static void AddMedia(ushort consumer, ushort? vk, params string[] names)
     {
         var info = new KeyInfo(names[0], null, vk, true, consumer);
         foreach (var n in names) Keys[n] = info;
+        if (vk is { } v) ByVk.TryAdd(v, info);
     }
 
     private static void BuildKeys()

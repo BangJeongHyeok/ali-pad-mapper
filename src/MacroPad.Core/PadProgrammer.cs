@@ -18,16 +18,32 @@ public static class PadProgrammer
                    $"패드(VID {vid:X4} / PID {pid:X4})의 설정 통로를 못 찾았어. USB가 꽂혀 있는지 확인해줘.");
     }
 
-    /// <summary>설정을 패드에 씀. 반환값: 쓴 바인딩 개수.</summary>
-    public static int Upload(PadConfig config, Action<string> log, bool dryRun = false)
+    /// <summary>
+    /// 설정을 패드에 씀. 반환값: 쓴 바인딩 개수.
+    /// onlyChanged 면 패드에 마지막으로 쓴 기록(PadState)과 다른 칸만 씀.
+    /// 실제로 쓴 칸은 PadState 에 기록됨 (statePath 생략 시 %LOCALAPPDATA%\MacroPad\pad-VID-PID.json).
+    /// </summary>
+    public static int Upload(PadConfig config, Action<string> log, bool dryRun = false, bool onlyChanged = false, string? statePath = null)
     {
         var plan = UploadPlan.Create(config);
         if (!plan.IsValid)
             throw new FormatException("설정 파일에 문제가 있어:\n - " + string.Join("\n - ", plan.Errors));
 
+        statePath ??= PadState.DefaultPath(config.Device);
+        var state = PadState.Load(statePath);
+
+        if (onlyChanged)
+        {
+            if (state is null)
+                log("이 PC에서 패드에 쓴 기록이 없어서 전부 써.");
+            plan = plan.OnlyChanged(state);
+            if (plan.SkippedUnchanged > 0)
+                log($"패드와 같은 {plan.SkippedUnchanged}개 칸은 건너뜀.");
+        }
+
         if (plan.Bindings.Count == 0)
         {
-            log("쓸 내용이 없어. (모든 칸이 비어 있음)");
+            log(onlyChanged ? "바뀐 칸이 없어. 패드에 쓸 게 없음." : "쓸 내용이 없어. (모든 칸이 비어 있음)");
             return 0;
         }
 
@@ -42,19 +58,41 @@ public static class PadProgrammer
         var device = FindDevice(config);
         log($"장치: {device.Describe()}");
 
-        using var conn = HidConnection.Open(device);
-        var mode = config.Advanced.ReportIdMode;
-        var interval = Math.Max(0, config.Advanced.PacketIntervalMs);
-
-        foreach (var (desc, packet) in plan.Packets())
+        state ??= new PadState();
+        int written = 0;
+        try
         {
-            log($"{desc}\n    {K8850Protocol.ToHex(packet)}");
-            conn.Write(packet, mode);
-            if (interval > 0) Thread.Sleep(interval);
+            using var conn = HidConnection.Open(device);
+            var mode = config.Advanced.ReportIdMode;
+            var interval = Math.Max(0, config.Advanced.PacketIntervalMs);
+
+            foreach (var (desc, packet, finished) in plan.PacketsWithBindings())
+            {
+                log($"{desc}\n    {K8850Protocol.ToHex(packet)}");
+                conn.Write(packet, mode);
+                if (interval > 0) Thread.Sleep(interval);
+                if (finished is not null)
+                {
+                    state.Record(finished);
+                    written++;
+                }
+            }
+        }
+        finally
+        {
+            // 중간에 실패해도 거기까지 쓴 칸은 기록
+            if (written > 0)
+            {
+                try { state.Save(statePath); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    log($"(패드 상태 기록 저장 실패: {ex.Message})");
+                }
+            }
         }
 
-        log($"완료: {plan.Bindings.Count}개 슬롯을 썼어.");
-        return plan.Bindings.Count;
+        log($"완료: {written}개 슬롯을 썼어.");
+        return written;
     }
 
     /// <summary>장치 정보 질의 패킷을 보내고 응답을 받음 (통신 확인용). 응답 없으면 null.</summary>

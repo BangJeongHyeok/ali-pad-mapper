@@ -2,9 +2,11 @@ using MacroPad.Core.Config;
 
 namespace MacroPad.Core.Protocol;
 
-/// <summary>패드에 쓸 바인딩 하나 (사람이 읽을 설명 포함).</summary>
-public sealed record PlannedBinding(int LayerIndex, int Slot, string Control, string Source, PadBinding Binding)
+/// <summary>패드에 쓸 바인딩 하나 (사람이 읽을 설명과 실제 패킷 포함).</summary>
+public sealed record PlannedBinding(SlotRef Ref, int Slot, string Control, string Source, PadBinding Binding, byte[] Packet)
 {
+    public int LayerIndex => Ref.Layer;
+
     public override string ToString() => $"레이어{LayerIndex + 1} {Control} (슬롯 {Slot}): \"{Source}\" → {Binding}";
 }
 
@@ -15,6 +17,9 @@ public sealed class UploadPlan
     public required IReadOnlyList<string> Errors { get; init; }
     public required ProtocolOptions Options { get; init; }
     public bool SendInitPacket { get; init; }
+
+    /// <summary>OnlyChanged 로 걸러져서 빠진 (패드와 이미 같은) 바인딩 수</summary>
+    public int SkippedUnchanged { get; init; }
 
     public bool IsValid => Errors.Count == 0;
 
@@ -33,29 +38,26 @@ public sealed class UploadPlan
             var lc = config.Layers[layer];
             if (lc is null) continue;
 
-            var buttons = lc.Buttons ?? new();
-            if (buttons.Count > adv.ButtonCount)
-                errors.Add($"레이어{layer + 1}: 버튼은 {adv.ButtonCount}개인데 {buttons.Count}개가 적혀 있어.");
+            var buttonCount = lc.Buttons?.Count ?? 0;
+            if (buttonCount > adv.ButtonCount)
+                errors.Add($"레이어{layer + 1}: 버튼은 {adv.ButtonCount}개인데 {buttonCount}개가 적혀 있어.");
 
-            for (int i = 0; i < Math.Min(buttons.Count, adv.ButtonCount); i++)
+            var knobCount = lc.Knobs?.Count ?? 0;
+            if (knobCount > adv.KnobCount)
+                errors.Add($"레이어{layer + 1}: 노브는 {adv.KnobCount}개인데 {knobCount}개가 적혀 있어.");
+
+            foreach (var slot in SlotRef.AllInLayer(layer, adv))
             {
-                var cols = Math.Max(1, adv.ButtonColumns);
-                var name = $"버튼{i + 1}({i / cols + 1}행 {i % cols + 1}열)";
-                TryAdd(layer, K8850Protocol.ButtonSlot(i), name, buttons[i]);
-            }
-
-            var knobs = lc.Knobs ?? new();
-            if (knobs.Count > adv.KnobCount)
-                errors.Add($"레이어{layer + 1}: 노브는 {adv.KnobCount}개인데 {knobs.Count}개가 적혀 있어.");
-
-            for (int k = 0; k < Math.Min(knobs.Count, adv.KnobCount); k++)
-            {
-                var knob = knobs[k];
-                if (knob is null) continue;
-                var knobName = k switch { 0 => "위 노브", 1 => "아래 노브", _ => $"노브{k + 1}" };
-                TryAdd(layer, K8850Protocol.KnobSlot(k, KnobAction.Ccw, options), knobName + " 왼쪽", knob.Ccw);
-                TryAdd(layer, K8850Protocol.KnobSlot(k, KnobAction.Press, options), knobName + " 누름", knob.Press);
-                TryAdd(layer, K8850Protocol.KnobSlot(k, KnobAction.Cw, options), knobName + " 오른쪽", knob.Cw);
+                var source = config.GetText(slot);
+                try
+                {
+                    if (TryPlan(slot, source, adv, options) is { } planned)
+                        bindings.Add(planned);
+                }
+                catch (FormatException ex)
+                {
+                    errors.Add($"{slot.Describe(adv.ButtonColumns)}: {ex.Message}");
+                }
             }
         }
 
@@ -66,34 +68,53 @@ public sealed class UploadPlan
             Options = options,
             SendInitPacket = adv.SendInitPacket,
         };
+    }
 
-        void TryAdd(int layer, int slot, string control, string? source)
+    /// <summary>
+    /// 칸 하나를 바인딩으로 변환. 비워둔 칸이면 null (= 건드리지 않음). 잘못된 값이면 FormatException.
+    /// 패킷 생성까지 미리 해서 길이 초과 같은 문제도 여기서 잡음.
+    /// </summary>
+    public static PlannedBinding? TryPlan(SlotRef slot, string? source, AdvancedSection adv, ProtocolOptions options)
+    {
+        var binding = PadBinding.Parse(source);
+        if (binding is null) return null;
+        var padSlot = slot.PadSlot(options);
+        var packet = K8850Protocol.BindingPacket(slot.Layer, padSlot, binding, options);
+        return new PlannedBinding(slot, padSlot, slot.ControlName(adv.ButtonColumns), source!.Trim(), binding, packet);
+    }
+
+    /// <summary>
+    /// 패드에 마지막으로 쓴 기록(state)과 다른 바인딩만 남긴 계획.
+    /// 기록이 없으면 그대로 (= 전부 씀).
+    /// </summary>
+    public UploadPlan OnlyChanged(PadState? state)
+    {
+        if (state is null) return this;
+        var changed = Bindings.Where(b => !state.Matches(b)).ToList();
+        return new UploadPlan
         {
-            try
-            {
-                var binding = PadBinding.Parse(source);
-                if (binding is null) return; // 비워둔 칸은 건드리지 않음
-                // 패킷 생성까지 미리 해봐서 길이 초과 같은 문제를 여기서 잡음
-                _ = K8850Protocol.BindingPacket(layer, slot, binding, options);
-                bindings.Add(new PlannedBinding(layer, slot, control, source!.Trim(), binding));
-            }
-            catch (FormatException ex)
-            {
-                errors.Add($"레이어{layer + 1} {control}: {ex.Message}");
-            }
+            Bindings = changed,
+            Errors = Errors,
+            Options = Options,
+            SendInitPacket = SendInitPacket,
+            SkippedUnchanged = Bindings.Count - changed.Count,
+        };
+    }
+
+    /// <summary>실제로 보낼 64바이트 패킷들 (설명, 해당 바인딩 포함. 초기화 패킷은 바인딩 null).</summary>
+    public IEnumerable<(string Description, byte[] Packet, PlannedBinding? Binding)> PacketsWithBindings()
+    {
+        if (SendInitPacket)
+            yield return ("초기화", K8850Protocol.InitPacket(), null);
+
+        foreach (var b in Bindings)
+        {
+            yield return (b.ToString(), b.Packet, null);
+            yield return ("  확정", K8850Protocol.FinalizePacket(), b); // 확정까지 보내야 그 바인딩이 끝난 것
         }
     }
 
     /// <summary>실제로 보낼 64바이트 패킷들 (설명 포함).</summary>
-    public IEnumerable<(string Description, byte[] Packet)> Packets()
-    {
-        if (SendInitPacket)
-            yield return ("초기화", K8850Protocol.InitPacket());
-
-        foreach (var b in Bindings)
-        {
-            yield return (b.ToString(), K8850Protocol.BindingPacket(b.LayerIndex, b.Slot, b.Binding, Options));
-            yield return ("  확정", K8850Protocol.FinalizePacket());
-        }
-    }
+    public IEnumerable<(string Description, byte[] Packet)> Packets() =>
+        PacketsWithBindings().Select(p => (p.Description, p.Packet));
 }

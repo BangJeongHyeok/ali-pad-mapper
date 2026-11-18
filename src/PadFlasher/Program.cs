@@ -43,7 +43,7 @@ static int Run(string[] args)
         case "upload":
         {
             var config = LoadConfig(rest.FirstOrDefault());
-            return Upload(config, flags.Contains("--dry-run"), flags.Contains("--yes"));
+            return Upload(config, flags.Contains("--dry-run"), flags.Contains("--yes"), flags.Contains("--changed"));
         }
 
         case "keys":
@@ -124,7 +124,7 @@ static int Info(PadConfig config)
     return 0;
 }
 
-static int Upload(PadConfig config, bool dryRun, bool yes)
+static int Upload(PadConfig config, bool dryRun, bool yes, bool onlyChanged)
 {
     var plan = UploadPlan.Create(config);
 
@@ -135,11 +135,20 @@ static int Upload(PadConfig config, bool dryRun, bool yes)
         return 1;
     }
 
+    if (onlyChanged)
+        plan = plan.OnlyChanged(PadState.Load(PadState.DefaultPath(config.Device)));
+
     Console.WriteLine();
-    Console.WriteLine($"쓸 내용 ({plan.Bindings.Count}개, 비워둔 칸은 그대로 둠):");
+    Console.WriteLine($"쓸 내용 ({plan.Bindings.Count}개, 비워둔 칸{(onlyChanged ? "과 패드와 같은 칸" : "")}은 그대로 둠):");
     foreach (var b in plan.Bindings)
         Console.WriteLine("  " + b);
     Console.WriteLine();
+
+    if (plan.Bindings.Count == 0)
+    {
+        Console.WriteLine("쓸 게 없어.");
+        return 0;
+    }
 
     if (!dryRun && !yes)
     {
@@ -152,7 +161,7 @@ static int Upload(PadConfig config, bool dryRun, bool yes)
         }
     }
 
-    PadProgrammer.Upload(config, Console.WriteLine, dryRun);
+    PadProgrammer.Upload(config, Console.WriteLine, dryRun, onlyChanged);
     if (!dryRun)
         Console.WriteLine("패드를 한 번 뽑았다 다시 꽂을 필요는 보통 없어. 바로 눌러/돌려서 확인해봐.");
     return 0;
@@ -198,6 +207,7 @@ static void PrintHelp()
           PadFlasher info [설정.json]               패드와 통신되는지 확인 (키/노브 개수 응답)
           PadFlasher upload [설정.json] --dry-run   보낼 패킷만 출력 (실제로 안 보냄)
           PadFlasher upload [설정.json] [--yes]     패드에 설정 쓰기
+          PadFlasher upload [설정.json] --changed   지난번에 쓴 것과 달라진 칸만 쓰기
           PadFlasher keys                           쓸 수 있는 키 이름 목록
           PadFlasher raw 03 FB FB FB                패킷 하나 직접 전송 (실험용)
 

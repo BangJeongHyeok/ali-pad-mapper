@@ -55,7 +55,7 @@ internal sealed class ActionRunner
         await _inputGate.WaitAsync().ConfigureAwait(false);
         try
         {
-            var delay = Math.Clamp(trigger.Action.DelayMs, 0, 5000);
+            var delay = trigger.Action.EffectiveDelayMs;
 
             // 패드의 트리거 키가 완전히 떨어질 시간을 조금 줌
             await Task.Delay(30).ConfigureAwait(false);

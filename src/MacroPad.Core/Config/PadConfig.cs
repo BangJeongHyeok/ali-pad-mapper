@@ -1,5 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using MacroPad.Core.Keys;
 
 namespace MacroPad.Core.Config;
 
@@ -61,8 +63,8 @@ public sealed class DeviceSection
     public string VendorId { get; set; } = "0x514C";
     public string ProductId { get; set; } = "0x8850";
 
-    public ushort VendorIdValue => ParseHex(VendorId, nameof(VendorId));
-    public ushort ProductIdValue => ParseHex(ProductId, nameof(ProductId));
+    [JsonIgnore] public ushort VendorIdValue => ParseHex(VendorId, nameof(VendorId));
+    [JsonIgnore] public ushort ProductIdValue => ParseHex(ProductId, nameof(ProductId));
 
     private static ushort ParseHex(string text, string name)
     {
@@ -113,8 +115,53 @@ public sealed class ActionConfig
     /// <summary>입력할 문자열 (한글 가능)</summary>
     public string? Text { get; set; }
 
-    /// <summary>keys 각 단계 사이 대기 시간(ms)</summary>
-    public int DelayMs { get; set; } = 40;
+    /// <summary>keys 각 단계 사이 대기 시간(ms). 생략하면 40.</summary>
+    public int? DelayMs { get; set; }
+
+    public const int DefaultDelayMs = 40;
+
+    [JsonIgnore] public int EffectiveDelayMs => Math.Clamp(DelayMs ?? DefaultDelayMs, 0, 5000);
+
+    /// <summary>run / keys / text 가 모두 비어 있는지</summary>
+    [JsonIgnore]
+    public bool IsEmpty =>
+        string.IsNullOrWhiteSpace(Run)
+        && (Keys is null || Keys.All(string.IsNullOrWhiteSpace))
+        && string.IsNullOrEmpty(Text);
+
+    public ActionConfig Clone() => new()
+    {
+        Run = Run,
+        Args = Args,
+        WorkingDir = WorkingDir,
+        Keys = Keys?.ToList(),
+        Text = Text,
+        DelayMs = DelayMs,
+    };
+
+    /// <summary>
+    /// keys 를 PC에서 보낼 키 조합 목록으로 해석하고, 동작 전체가 올바른지 검사.
+    /// 문제가 있으면 FormatException.
+    /// </summary>
+    public IReadOnlyList<Chord> ParseKeys()
+    {
+        var chords = new List<Chord>();
+        foreach (var step in Keys ?? new())
+        {
+            if (string.IsNullOrWhiteSpace(step)) continue;
+            foreach (var c in Chord.ParseSequence(step))
+            {
+                if (c.Key is { Vk: null })
+                    throw new FormatException($"'{c.Key.Name}' 키는 PC에서 보낼 수 없어.");
+                chords.Add(c);
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(Run) && chords.Count == 0 && string.IsNullOrEmpty(Text))
+            throw new FormatException("run / keys / text 중 하나는 있어야 해.");
+
+        return chords;
+    }
 }
 
 /// <summary>프로토콜 세부값. 첫 테스트가 안 될 때만 건드리면 됨 (README 문제 해결 참고).</summary>
