@@ -1,0 +1,70 @@
+// MacroPad 설정 파일 (주석 // 사용 가능, 마지막 쉼표 허용)
+//
+// 이 파일 하나로 두 가지를 설정해:
+//   1) layers  : 패드 자체에 저장되는 설정 → "패드에 설정 쓰기"를 해야 반영됨 (한 번 쓰면 PC 프로그램 없이도 동작)
+//   2) actions : PC 에이전트(트레이 앱)가 처리하는 동작 → 저장하면 바로 반영됨
+//
+// 패드 칸에 쓸 수 있는 값:
+//   미디어 키 : "volumeup", "volumedown", "mute", "play"(재생/정지), "next", "prev", "stop"
+//   키 하나   : "a", "f5", "enter", "f13" ...   (전체 목록: PadFlasher keys)
+//   단축키    : "ctrl+c", "ctrl+shift+esc", "win+shift+s"
+//   연속 입력 : "ctrl+a, ctrl+c"  (쉼표로 구분, 수식 키 포함 최대 18개)
+//   비워두기  : null 또는 ""  → 패드에 쓸 때 그 칸은 건드리지 않음
+//
+// 프로그램 실행처럼 패드 혼자 못 하는 건:
+//   패드 칸에 "f13" ~ "f24" 를 넣고 → 아래 actions 에서 그 키에 동작을 연결.
+//   (F13~F24는 일반 키보드에 없는 키라서 다른 입력과 안 겹침)
+{
+  "device": {
+    "vendorId": "0x514C",
+    "productId": "0x8850"
+  },
+
+  "layers": [
+    {
+      // 버튼 12개: 왼쪽 위부터 가로 방향
+      //   [ 1][ 2][ 3][ 4]
+      //   [ 5][ 6][ 7][ 8]
+      //   [ 9][10][11][12]
+      "buttons": [
+        "play", "prev", "next", "f21",
+        "f13",  "f14",  "f15",  "f16",
+        "f17",  "f18",  "f19",  "f20"
+      ],
+
+      // 노브 2개: [위 노브, 아래 노브]
+      //   ccw = 왼쪽으로 돌림, press = 꾹 누름, cw = 오른쪽으로 돌림
+      "knobs": [
+        { "ccw": "volumedown", "press": "mute",   "cw": "volumeup" },
+        { "ccw": "ctrl+minus", "press": "ctrl+0", "cw": "ctrl+equal" }  // 브라우저 등 확대/축소
+      ]
+    }
+    // 레이어 2, 3 이 필요하면 같은 형식으로 추가 (최대 3개)
+  ],
+
+  // PC 에이전트 동작. "트리거 키": { 동작 }
+  //   run   : 프로그램 / 파일 / 폴더 / URL 실행.  args, workingDir 선택
+  //   keys  : 단축키를 순서대로 보냄. ["ctrl+c", "alt+tab", "ctrl+v"]   delayMs 로 사이 간격(ms)
+  //   text  : 문자열 입력 (한글 가능)
+  "actions": {
+    "f13": { "run": "notepad.exe" },
+    "f14": { "run": "calc.exe" },
+    "f15": { "keys": ["win+shift+s"] },                 // 화면 캡처
+    "f16": { "keys": ["ctrl+shift+esc"] },              // 작업 관리자
+    "f17": { "run": "https://www.google.com" },
+    "f18": { "text": "확인했습니다. 감사합니다!" },
+    "f19": { "keys": ["win+d"] },                       // 바탕 화면 보기
+    "f20": { "run": "%USERPROFILE%\\Downloads" },       // 다운로드 폴더
+    "f21": { "keys": ["win+v"] }                        // 클립보드 기록
+  },
+
+  // 첫 테스트가 안 될 때만 건드리기 (README 문제 해결 참고)
+  "advanced": {
+    "knobSlotBase": 16,
+    "mediaModeByte": 2,
+    "keyDelay": 50,
+    "reportIdMode": "auto",
+    "sendInitPacket": true,
+    "packetIntervalMs": 15
+  }
+}

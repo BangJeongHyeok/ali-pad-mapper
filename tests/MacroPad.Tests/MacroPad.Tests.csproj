@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 패킷 바이트가 공개된 분석 결과와 똑같이 나오는지 검사 (실제 패드 없이 실행 가능) -->
+  <PropertyGroup>
+    <TargetFramework>$(MacroPadDotNet)</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MacroPad.Core\MacroPad.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\macropad.json" Link="TestConfigs\macropad.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\configs\*.json" LinkBase="TestConfigs" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

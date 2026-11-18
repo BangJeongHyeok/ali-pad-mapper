@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    트레이 상주 앱: PC 시작 시 자동 실행 → 패드가 보내는 F13~F24 등을 받아서
+    프로그램 실행 / 단축키 묶음 / 문자열 입력 처리. 메뉴에서 패드에 설정 쓰기도 가능.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>$(MacroPadDotNet)-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>PadAgent</RootNamespace>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MacroPad.Core\MacroPad.Core.csproj" />
+  </ItemGroup>
+
+  <!-- publish 할 때 설정 파일도 같이 복사 (개발 중에는 솔루션 폴더의 macropad.json 을 바로 씀) -->
+  <ItemGroup>
+    <None Include="..\..\macropad.json" Link="macropad.json" CopyToOutputDirectory="Never" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

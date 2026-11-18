@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    공통 로직: 설정 파일 파싱, 키 이름 표, 패드 프로토콜(패킷 생성), Windows HID 통신.
+    HID 부분은 Windows 전용([SupportedOSPlatform("windows")])이고,
+    나머지는 OS와 무관해서 테스트를 어디서든 돌릴 수 있음.
+  -->
+  <PropertyGroup>
+    <TargetFramework>$(MacroPadDotNet)</TargetFramework>
+    <RootNamespace>MacroPad.Core</RootNamespace>
+  </PropertyGroup>
+
+</Project>

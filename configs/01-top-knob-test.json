@@ -1,0 +1,14 @@
+// 첫 테스트용: 위 노브 하나만 볼륨으로 바꿈. 나머지 칸은 비워둬서 건드리지 않음.
+//   PadFlasher upload configs/01-top-knob-test.json --dry-run   (패킷 미리보기)
+//   PadFlasher upload configs/01-top-knob-test.json             (실제로 쓰기)
+// 되돌리기: configs/00-factory-default.json
+{
+  "layers": [
+    {
+      "buttons": [],
+      "knobs": [
+        { "ccw": "volumedown", "press": "mute", "cw": "volumeup" }
+      ]
+    }
+  ]
+}

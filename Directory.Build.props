@@ -1,0 +1,17 @@
+<Project>
+  <!-- 모든 프로젝트 공통 설정 -->
+  <PropertyGroup>
+    <!--
+      .NET 버전. Visual Studio 2026(.NET 10 SDK) 기준.
+      VS 2022에서 열어야 하면 net8.0 으로 바꾸면 그대로 빌드됨.
+    -->
+    <MacroPadDotNet>net10.0</MacroPadDotNet>
+
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+
+    <Version>0.1.0</Version>
+    <Product>MacroPad</Product>
+  </PropertyGroup>
+</Project>

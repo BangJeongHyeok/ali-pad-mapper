@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 패드에 설정을 써 넣는 명령줄 도구 (처음 테스트 / 문제 확인용) -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>$(MacroPadDotNet)-windows</TargetFramework>
+    <RootNamespace>PadFlasher</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MacroPad.Core\MacroPad.Core.csproj" />
+  </ItemGroup>
+
+  <!-- publish 할 때 설정 파일들도 같이 복사 -->
+  <ItemGroup>
+    <None Include="..\..\macropad.json" Link="macropad.json" CopyToOutputDirectory="Never" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="..\..\configs\*.json" LinkBase="configs" CopyToOutputDirectory="Never" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
