@@ -3,8 +3,11 @@
 알리 매크로 패드(**VID 514C / PID 8850**, 12키 + 노브 2개)를 판매자 프로그램 없이 쓰기 위한 도구.
 
 - 드라이버 설치 없음 (Windows 기본 HID API만 사용)
-- 설정은 `macropad.json` 파일 하나로 관리
+- **편집기 창**에서 칸을 클릭해서 키 매핑 (미디어 키 / 단축키 / 프로그램 실행 / 문자열 입력)
+- 설정은 `macropad.json` 파일 하나로 관리 (직접 편집도 가능)
 - C# / .NET 10 / Visual Studio 솔루션
+
+[![CI](https://github.com/BangJeongHyeok/ali-pad-mapper/actions/workflows/ci.yml/badge.svg)](https://github.com/BangJeongHyeok/ali-pad-mapper/actions/workflows/ci.yml)
 
 ---
 
@@ -27,7 +30,7 @@
 |---|---|
 | `src/MacroPad.Core` | 설정 파일 해석, 키 이름 표, 패드 프로토콜(패킷 생성), HID 통신 |
 | `src/PadFlasher` | 명령줄 도구. 패드 찾기 / 통신 확인 / 설정 쓰기 / 패킷 미리보기 |
-| `src/PadAgent` | 트레이 상주 앱. Windows 시작 시 자동 실행, actions 처리, 메뉴에서 패드에 쓰기 |
+| `src/PadAgent` | 트레이 상주 앱 + **편집기 창**. Windows 시작 시 자동 실행, actions 처리, 패드에 쓰기 |
 | `tests/MacroPad.Tests` | 패킷 바이트 검증 테스트 (패드 없이 실행 가능) |
 
 **노브 볼륨처럼 패드에 새긴 기능은 PadAgent 없이도 동작해.** PadAgent는 "프로그램 실행" 같은 PC 쪽 동작이 필요할 때만 켜두면 돼.
@@ -84,12 +87,40 @@ dotnet run --project src/PadFlasher -- upload configs/01-top-knob-test.json
 ### ⑤ 확인
 메모장을 열어두고 **위 노브**를 돌려봐.
 - 볼륨 표시가 뜨고 글자(ㄱ/ㅔ)가 안 찍히면 → **성공!** 4장으로.
-- 여전히 글자가 찍히면 → 아래 "5. 안 될 때" 참고.
+- 여전히 글자가 찍히면 → 아래 "6. 안 될 때" 참고.
 - 아래 노브는 아직 원래대로(ㄴ/ㅕ) 찍히는 게 정상.
 
 ---
 
-## 4. 전체 설정 쓰기 + 트레이 앱
+## 4. 편집기로 설정하기 (추천)
+
+```powershell
+dotnet run --project src/PadAgent
+```
+(또는 publish 한 `PadAgent.exe` 실행. 이미 트레이에 떠 있으면 그쪽 편집기 창이 열림. 트레이 아이콘 더블클릭도 같음)
+
+화면 구성: 왼쪽에 패드 모양(버튼 12개 + 노브 2개 × 왼쪽/누름/오른쪽), 오른쪽에 선택한 칸의 설정, 아래에 [다시 읽기] [저장] [패드에 쓰기] [전체 쓰기].
+
+1. 왼쪽 패드 그림에서 칸을 클릭
+2. 오른쪽에서 종류를 고르고 값을 넣음
+   | 종류 | 설명 | 어디에 저장 |
+   |---|---|---|
+   | 비워두기 | 패드에 쓸 때 이 칸은 건드리지 않음 | – |
+   | 미디어 키 | 볼륨, 음소거, 재생/정지, 다음/이전 곡 | 패드 (PC 프로그램 없이 동작) |
+   | 키 / 단축키 | `f5`, `ctrl+c`, `ctrl+a, ctrl+c` 등. **[키 눌러서 입력…]** 으로 직접 눌러서 넣을 수 있음 | 패드 (PC 프로그램 없이 동작) |
+   | PC 동작 | 프로그램/파일/폴더/URL 실행, 긴 단축키 묶음, 문자열(한글) 입력 | PC (PadAgent가 켜져 있을 때) |
+3. **[패드에 쓰기]**: 저장하고, 패드에 아직 안 쓴 칸만 씀. PC 동작은 저장 즉시 반영됨
+
+- PC 동작의 트리거 키(F13~F24, 모자라면 shift+/ctrl+ 조합)는 **자동으로 배정**돼서 신경 쓸 필요 없어.
+  이미 배정된 칸의 프로그램만 바꾸는 건 패드에 다시 쓸 필요가 없어.
+- 칸 색: 파랑 = 지정됨, **주황 = 패드에 아직 안 씀**, 회색 = 비어 있음, 빨강 = 잘못된 값
+- 패드는 설정을 읽어오는 기능이 없어서, **이 PC에서 마지막으로 쓴 내용**을
+  `%LOCALAPPDATA%\MacroPad\pad-514C-8850.json` 에 기록해 두고 비교해. 기록이 없으면 처음 한 번은 **[전체 쓰기]**.
+- 편집기로 처음 저장하면 기존 `macropad.json` 의 주석이 없어지고 편집기 형식으로 바뀌어 (원본은 `macropad.json.bak`).
+
+---
+
+## 5. 명령줄로 전체 설정 쓰기 + 트레이 앱
 
 ### 패드에 전체 설정 쓰기
 `macropad.json` 을 원하는 대로 고친 뒤:
@@ -97,6 +128,7 @@ dotnet run --project src/PadFlasher -- upload configs/01-top-knob-test.json
 dotnet run --project src/PadFlasher -- upload
 ```
 (설정 파일을 생략하면 솔루션 폴더의 `macropad.json` 을 씀)
+`upload --changed` 를 붙이면 지난번에 쓴 것과 달라진 칸만 써.
 
 기본 `macropad.json` 배치:
 ```
@@ -115,7 +147,8 @@ dotnet run --project src/PadAgent
 
 | 메뉴 | 설명 |
 |---|---|
-| 설정 파일 열기 | 지금 쓰는 `macropad.json` 열기 (아이콘 더블클릭도 동일) |
+| 편집기 열기… | 편집기 창 (아이콘 더블클릭도 동일) |
+| 설정 파일 열기 (JSON) | 지금 쓰는 `macropad.json` 을 메모장 등으로 열기 |
 | 설정 다시 불러오기 | 수동 새로고침 (저장하면 자동으로도 다시 읽음) |
 | 패드에 설정 쓰기… | `layers` 를 패드에 씀 (PadFlasher upload 와 같음) |
 | Windows 시작 시 자동 실행 | 체크하면 로그인할 때마다 자동 실행 (관리자 권한 불필요) |
@@ -129,12 +162,15 @@ VS 디버그 빌드 대신 고정된 exe 를 시작 프로그램에 등록하는
 .\tools\publish.ps1
 ```
 → `publish\PadAgent.exe` 를 실행하고 트레이 메뉴에서 "Windows 시작 시 자동 실행" 체크.
+(자동 실행은 `--tray` 인자로 등록돼서 로그인할 때는 편집기 창 없이 트레이에만 떠)
+
+GitHub Actions(CI)도 매번 같은 방식으로 빌드해서 `MacroPad-win-x64` 산출물로 올려 둬.
 
 `publish` 폴더가 솔루션 폴더 안에 있는 동안은 **솔루션 폴더의 `macropad.json` 을 그대로 씀** (설정 파일이 하나로 유지됨). publish 폴더를 다른 곳으로 옮기면 그 옆의 `macropad.json` 을 씀.
 
 ---
 
-## 5. 안 될 때
+## 6. 안 될 때
 
 | 증상 | 해볼 것 |
 |---|---|
@@ -156,7 +192,7 @@ dotnet run --project src/PadFlasher -- raw 03 FB FB FB
 
 ---
 
-## 6. 설정 파일 문법
+## 7. 설정 파일 문법
 
 ### 패드 칸 (`layers`)
 | 쓰는 법 | 예 |
@@ -188,7 +224,7 @@ dotnet run --project src/PadFlasher -- raw 03 FB FB FB
 
 ---
 
-## 7. 코드 지도 (수정할 때)
+## 8. 코드 지도 (수정할 때)
 
 | 바꾸고 싶은 것 | 파일 |
 |---|---|
@@ -198,6 +234,10 @@ dotnet run --project src/PadFlasher -- raw 03 FB FB FB
 | HID 장치 찾기 / 전송 | `src/MacroPad.Core/Hid/HidDevices.cs` |
 | PC 동작 종류 추가 (예: 앱별 볼륨) | `src/PadAgent/ActionRunner.cs`, `TriggerMap.cs` |
 | 트레이 메뉴 | `src/PadAgent/TrayApp.cs` |
+| 편집기 화면 | `src/PadAgent/Editor/EditorForm.cs`, `KeyCaptureDialog.cs` |
+| 칸 편집 규칙 (트리거 자동 배정 등) | `src/MacroPad.Core/Editing/ConfigEditor.cs` |
+| 설정 파일 저장 형식 | `src/MacroPad.Core/Config/ConfigWriter.cs` |
+| 패드에 쓴 기록 / 바뀐 칸만 쓰기 | `src/MacroPad.Core/Protocol/PadState.cs`, `UploadPlan.cs` |
 | 키 가로채기 | `src/PadAgent/Native/KeyboardHook.cs` |
 
 프로토콜 요약 (패킷 64바이트):
@@ -217,7 +257,7 @@ Windows 에서는 HID 출력 리포트(65바이트 = 리포트 ID 1바이트 + 6
 
 ---
 
-## 8. 참고 / 출처
+## 9. 참고 / 출처
 
 - 프로토콜 분석: [kriomant/ch57x-keyboard-tool](https://github.com/kriomant/ch57x-keyboard-tool) (MIT)
   - 이슈 #89 "Supporting 0x514c : 0x8850" — 12키+노브2 모델 슬롯 번호, 미디어 코드, Windows HID 방식

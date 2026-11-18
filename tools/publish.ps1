@@ -21,6 +21,7 @@ $common = @(
     '-r', 'win-x64',
     '-o', $out,
     '-p:PublishSingleFile=true',
+    '-p:DebugType=none',          # PDB/빌드 경로(C:\Users\<사용자>\…)가 exe에 남지 않게
     '--self-contained', $SelfContained.IsPresent.ToString().ToLower()
 )
 

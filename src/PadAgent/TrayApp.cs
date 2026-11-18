@@ -5,6 +5,7 @@ using System.Text;
 using MacroPad.Core;
 using MacroPad.Core.Config;
 using MacroPad.Core.Protocol;
+using PadAgent.Editor;
 using PadAgent.Native;
 
 namespace PadAgent;
@@ -27,11 +28,12 @@ internal sealed class TrayApp : ApplicationContext
     private readonly HashSet<ushort> _heldTriggers = new();
     private FileSystemWatcher? _watcher;
     private int _reloadRetries;
+    private EditorForm? _editorForm;
 
     private PadConfig? _config;
     private TriggerMap _triggers = TriggerMap.Empty;
 
-    public TrayApp(string configPath)
+    public TrayApp(string configPath, bool openEditor)
     {
         _configPath = configPath;
 
@@ -44,16 +46,20 @@ internal sealed class TrayApp : ApplicationContext
         _startupItem.Checked = SafeIsStartupEnabled();
         _startupItem.CheckedChanged += (_, _) => ToggleStartup(_startupItem.Checked);
 
+        var editorItem = new ToolStripMenuItem("편집기 열기…", null, (_, _) => OpenEditor());
+        editorItem.Font = new Font(editorItem.Font, FontStyle.Bold); // 더블클릭 = 이 메뉴
+
         _menu.Items.Add(_statusItem);
         _menu.Items.Add(new ToolStripSeparator());
-        _menu.Items.Add("설정 파일 열기", null, (_, _) => OpenConfig());
+        _menu.Items.Add(editorItem);
+        _menu.Items.Add("설정 파일 열기 (JSON)", null, (_, _) => OpenConfig());
         _menu.Items.Add("설정 다시 불러오기", null, (_, _) => Reload(showResult: true));
         _menu.Items.Add("패드에 설정 쓰기…", null, (_, _) => UploadToPad());
         _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add(_startupItem);
         _menu.Items.Add("로그 보기", null, (_, _) => OpenPath(AgentLog.FilePath));
         _menu.Items.Add(new ToolStripSeparator());
-        _menu.Items.Add("종료", null, (_, _) => ExitThread());
+        _menu.Items.Add("종료", null, (_, _) => Exit());
 
         _icon = new NotifyIcon
         {
@@ -62,7 +68,7 @@ internal sealed class TrayApp : ApplicationContext
             ContextMenuStrip = _menu,
             Visible = true,
         };
-        _icon.DoubleClick += (_, _) => OpenConfig();
+        _icon.DoubleClick += (_, _) => OpenEditor();
 
         _runner = new ActionRunner(ShowError);
 
@@ -70,7 +76,7 @@ internal sealed class TrayApp : ApplicationContext
         _reloadTimer.Tick += (_, _) =>
         {
             _reloadTimer.Stop();
-            Reload(showResult: true);
+            Reload(showResult: false); // 파일 저장마다 알림이 뜨면 귀찮으니 성공은 조용히 (오류는 알림)
         };
 
         Reload(showResult: false);
@@ -85,6 +91,59 @@ internal sealed class TrayApp : ApplicationContext
         {
             ShowError("키보드 훅을 설치하지 못했어: " + ex.Message);
         }
+
+        // 예전 버전이 등록한 자동 실행 항목에 --tray 붙이기 (로그인할 때 편집기 창이 뜨지 않게)
+        try { StartupRegistration.MigrateIfNeeded(); }
+        catch (Exception ex) { AgentLog.Write("자동 실행 항목 갱신 실패: " + ex.Message); }
+
+        if (openEditor)
+            _ui.Post(_ => OpenEditor(), null);
+    }
+
+    // ─────────────────────────── 편집기 ───────────────────────────
+
+    /// <summary>편집기 창 열기 (이미 열려 있으면 앞으로). 다른 스레드에서 불러도 됨.</summary>
+    public void OpenEditorFromAnyThread() => _ui.Post(_ => OpenEditor(), null);
+
+    private void OpenEditor()
+    {
+        if (_editorForm is { IsDisposed: false } existing)
+        {
+            if (existing.WindowState == FormWindowState.Minimized)
+                existing.WindowState = FormWindowState.Normal;
+            existing.Activate();
+            return;
+        }
+
+        try
+        {
+            var form = new EditorForm(_configPath, _icon.Icon);
+            form.FormClosed += (_, _) =>
+            {
+                _editorForm = null;
+                form.Dispose();
+            };
+            _editorForm = form;
+            form.Show();
+            form.Activate();
+        }
+        catch (Exception ex) when (ex is FormatException or IOException or UnauthorizedAccessException)
+        {
+            AgentLog.Write("편집기 열기 실패: " + ex);
+            MessageBox.Show("설정 파일을 읽을 수 없어서 편집기를 못 열었어:\n" + ex.Message +
+                            "\n\n[설정 파일 열기 (JSON)]로 직접 고쳐줘.", "MacroPad", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+    }
+
+    private void Exit()
+    {
+        // 편집기에 저장 안 한 내용이 있으면 먼저 물어봄 (취소하면 종료도 취소)
+        if (_editorForm is { IsDisposed: false } form)
+        {
+            form.Close();
+            if (_editorForm is not null) return;
+        }
+        ExitThread();
     }
 
     // ─────────────────────────── 키 처리 ───────────────────────────
@@ -284,6 +343,7 @@ internal sealed class TrayApp : ApplicationContext
 
     protected override void ExitThreadCore()
     {
+        _editorForm?.Dispose();
         _hook.Dispose();
         _watcher?.Dispose();
         _reloadTimer.Dispose();

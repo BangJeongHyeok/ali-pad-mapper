@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'claude/**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build
+        run: dotnet build MacroPad.sln -c Release
+
+      - name: Test
+        run: dotnet test tests/MacroPad.Tests -c Release --no-build
+
+      # 배포용 실행 파일 (.NET 10 Desktop Runtime 필요한 작은 exe)
+      - name: Publish
+        shell: pwsh
+        run: ./tools/publish.ps1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MacroPad-win-x64
+          path: publish/
+          if-no-files-found: error

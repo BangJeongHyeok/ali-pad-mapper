@@ -12,6 +12,9 @@ internal static class StartupRegistration
     private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string ValueName = "MacroPadAgent";
 
+    /// <summary>자동 실행 때는 트레이에만 뜨고 편집기 창은 안 염</summary>
+    public const string TrayArgument = "--tray";
+
     private static string ExePath => Environment.ProcessPath ?? Application.ExecutablePath;
 
     public static bool IsEnabled()
@@ -25,8 +28,20 @@ internal static class StartupRegistration
     {
         using var key = Registry.CurrentUser.CreateSubKey(RunKey);
         if (enabled)
-            key.SetValue(ValueName, $"\"{ExePath}\"");
+            key.SetValue(ValueName, $"\"{ExePath}\" {TrayArgument}");
         else
             key.DeleteValue(ValueName, throwOnMissingValue: false);
+    }
+
+    /// <summary>예전 형식(인자 없음)으로 등록돼 있으면 --tray 를 붙여서 다시 등록</summary>
+    public static void MigrateIfNeeded()
+    {
+        using var key = Registry.CurrentUser.OpenSubKey(RunKey);
+        if (key?.GetValue(ValueName) is string value
+            && value.Contains(ExePath, StringComparison.OrdinalIgnoreCase)
+            && !value.Contains(TrayArgument, StringComparison.OrdinalIgnoreCase))
+        {
+            SetEnabled(true);
+        }
     }
 }

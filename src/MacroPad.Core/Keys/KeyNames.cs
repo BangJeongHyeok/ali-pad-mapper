@@ -6,14 +6,14 @@ public static class KeyNames
     private static readonly Dictionary<string, string> MediaLabels = new(StringComparer.OrdinalIgnoreCase)
     {
         ["volumeup"] = "볼륨 +",
-        ["volumedown"] = "볼륨 −",
+        ["volumedown"] = "볼륨 -",
         ["mute"] = "음소거",
         ["play"] = "재생/정지",
         ["next"] = "다음 곡",
         ["prev"] = "이전 곡",
         ["stop"] = "정지",
         ["brightnessup"] = "밝기 +",
-        ["brightnessdown"] = "밝기 −",
+        ["brightnessdown"] = "밝기 -",
     };
 
     private static readonly Dictionary<string, string> KeyLabels = new(StringComparer.OrdinalIgnoreCase)

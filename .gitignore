@@ -5,3 +5,7 @@ publish/
 *.user
 *.suo
 TestResults/
+
+# 편집기 저장 시 생기는 백업/임시 파일
+*.bak
+*.tmp

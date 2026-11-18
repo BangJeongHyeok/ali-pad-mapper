@@ -16,6 +16,11 @@ public static class ConfigWriter
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping, // 한글을 \uXXXX 로 바꾸지 않음
     };
 
+    private const string HeaderFirstLine = "// MacroPad 설정 파일 — MacroPad 편집기가 저장함";
+
+    /// <summary>편집기가 저장한 형식인지 (아니면 사람이 쓴 주석이 있을 수 있음 → 덮어쓰기 전에 확인)</summary>
+    public static bool IsEditorFormat(string text) => text.TrimStart('\uFEFF', ' ', '\r', '\n').StartsWith(HeaderFirstLine, StringComparison.Ordinal);
+
     private const string Header = """
         // MacroPad 설정 파일 — MacroPad 편집기가 저장함 (직접 고쳐도 됨, 주석 // 사용 가능)
         //

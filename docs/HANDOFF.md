@@ -1,4 +1,4 @@
-# MacroPad 프로젝트 인수인계 (2026-11-18 기준)
+# MacroPad 프로젝트 인수인계 (2026-11-18 기준, 레포 이전 후 갱신)
 
 알리 매크로 패드(12키 + 노브 2개)를 판매자 프로그램 없이 쓰기 위해 직접 만든 C# 도구.
 이 문서는 지금까지의 결정, 확인된 사실, 코드 구조, 남은 일을 다음 작업 세션에 넘기기 위한 정리.
@@ -15,6 +15,7 @@
   3. 키로 특정 프로그램 실행, 단축키 묶음 실행 ✅
   4. PC 시작 시 자동 실행 ✅
   5. exe만이 아니라 계속 수정 가능한 프로젝트 형태 ✅
+  6. **최종 목표: 키 매핑을 자유롭게 할 수 있는 Windows 응용 프로그램** → 편집기 1차 구현 (실물 확인 필요)
 
 ---
 
@@ -117,8 +118,17 @@ src/MacroPad.Core/           OS 무관 로직 + Windows HID
   Hid/HidNative.cs           P/Invoke
   Hid/HidDevices.cs          장치 열거, 설정 통로 선택(UsagePage ≥ 0xFF00), 출력 ReportID 감지, 쓰기/읽기
   PadProgrammer.cs           Upload / Query / SendRaw (PadFlasher·PadAgent 공통)
-src/PadFlasher/              콘솔: list / info / upload [--dry-run] [--yes] / keys / raw
-src/PadAgent/                WinForms 트레이 앱
+  Protocol/SlotRef.cs        칸 식별(레이어+버튼/노브), 칸 이름, 슬롯 번호, PadConfig 칸 읽기/쓰기
+  Protocol/PadState.cs       패드에 마지막으로 쓴 내용 기록 (%LOCALAPPDATA%\MacroPad\pad-VID-PID.json)
+  Editing/ConfigEditor.cs    칸 단위 편집 모델. PC 동작 트리거(F13~F24 → shift+/ctrl+/ctrl+shift+) 자동 배정·회수
+  Editing/SlotDisplay.cs     칸 표시 글자 ("[실행] notepad", "볼륨 +")
+  Config/ConfigWriter.cs     macropad.json 저장 (버튼 4개씩 한 줄, .bak 백업, 임시 파일 후 교체)
+  Keys/KeyNames.cs           키/미디어 표시 이름
+src/PadFlasher/              콘솔: list / info / upload [--dry-run] [--yes] [--changed] / keys / raw
+src/PadAgent/                WinForms 트레이 앱 + 편집기
+  Program.cs                 단일 실행. 두 번째 실행 시 기존 프로세스에 "편집기 열기" 신호. --tray 면 트레이만
+  Editor/EditorForm.cs       편집기 창 (패드 그림 + 칸 설정 + 저장/패드에 쓰기)
+  Editor/KeyCaptureDialog.cs "키 눌러서 입력" (키 조합을 눌러서 기록)
   TrayApp.cs                 메뉴, 설정 자동 재로드(FileSystemWatcher), 패드에 쓰기, 알림
   TriggerMap.cs              actions → (VK, 수식 키 플래그) 표
   ActionRunner.cs            run(ShellExecute) / keys(SendInput) / text(유니코드 입력)
@@ -126,15 +136,25 @@ src/PadAgent/                WinForms 트레이 앱
   Native/InputSender.cs      SendInput, dwExtraInfo 서명 'MPAD'로 자기 입력 무시
   Native/StartupRegistration.cs
   AgentLog.cs                %LOCALAPPDATA%\MacroPad\agent.log
-tests/MacroPad.Tests/        xUnit 24케이스 (공개 테스트 벡터와 바이트 비교, 설정 파일 검증)
-tools/publish.ps1            단일 exe publish (-SelfContained 선택)
+tests/MacroPad.Tests/        xUnit 49케이스 (패킷 바이트, 설정 파일, 편집 모델, 저장 왕복, 패드 상태)
+tools/publish.ps1            단일 exe publish (-SelfContained 선택, DebugType=none)
+.github/workflows/ci.yml     windows-latest: build → test → publish → 산출물 MacroPad-win-x64
 ```
 
 동작 흐름:
 ```
-macropad.json ─ layers ─▶ UploadPlan ─▶ K8850Protocol 패킷 ─▶ HidConnection(MI_00) ─▶ 패드 메모리
+EditorForm ─ ConfigEditor ─ ConfigWriter ─▶ macropad.json
+macropad.json ─ layers ─▶ UploadPlan(.OnlyChanged) ─▶ K8850Protocol 패킷 ─▶ HidConnection(MI_00) ─▶ 패드 메모리
+                                                                              └▶ PadState 기록
               └ actions ─▶ TriggerMap ─▶ KeyboardHook(F13~F24 삼킴) ─▶ ActionRunner
 ```
+
+편집기 설계 메모:
+- 설정 파일 형식은 그대로 둠 (layers 칸 = 트리거 키, actions = 동작). 편집기가 트리거를 자동 배정해서
+  사용자는 "이 칸 = 메모장 실행"으로만 다룸. 같은 칸의 동작만 바꾸면 트리거 유지 → 패드에 다시 쓸 필요 없음
+- 트리거 후보에서 alt/win 조합 제외: 패드가 alt/win을 눌렀다 떼면 메뉴 막대/시작 메뉴가 열릴 수 있음
+- 입력 즉시 메모리 설정에 반영, [저장]해야 파일에 씀. 잘못된 입력은 설정을 안 바꾸고 오류만 표시
+- 편집기 저장은 주석을 보존하지 않음 → 편집기 형식이 아닌 파일을 처음 덮어쓸 때 확인 + .bak 백업
 
 ---
 
@@ -155,16 +175,22 @@ macropad.json ─ layers ─▶ UploadPlan ─▶ K8850Protocol 패킷 ─▶ Hi
 - [ ] `info` 질의 실물 확인 → 연결된 패드의 키/노브 수를 읽어 설정 검증에 활용
 - [ ] 레이어 2·3 동작/전환 방법 확인
 - [ ] 마우스 바인딩 (공개 자료상 종류 3, 17바이트 형식. 클릭/휠/이동)
-- [ ] 설정 편집 GUI (현재는 JSON 직접 편집)
+- [x] 설정 편집 GUI → `EditorForm` 1차 구현 (**Windows 실물 실행 확인 전**: Linux에서 빌드·테스트만 함)
 - [ ] 활성 창(앱)별 actions 프로필 전환 (PC 에이전트 쪽)
 - [ ] 패드 USB 연결/분리 감지, 트레이 아이콘에 연결 상태 표시
-- [ ] 바뀐 슬롯만 쓰기 (이전에 쓴 설정과 비교)
-- [ ] CI (GitHub Actions `windows-latest` 에서 build + test)
-- [ ] 배포용 publish에 `-p:DebugType=none` 추가 (아래 8장)
+- [x] 바뀐 슬롯만 쓰기 (PadState 기록과 패킷 비교, 편집기 [패드에 쓰기] / `upload --changed`)
+- [x] CI (GitHub Actions `windows-latest` 에서 build + test + publish 산출물)
+- [x] 배포용 publish에 `-p:DebugType=none` 추가 (아래 8장)
+- [ ] 편집기 실사용 피드백 반영 (화면 배율 125/150%, 키 입력 창, 저장/쓰기 흐름)
+- [ ] 편집기에서 PC 동작 "지금 실행해보기" 버튼
+- [ ] 편집기가 열려 있는 동안 파일이 밖에서 바뀌면 알림 (지금은 [다시 읽기] 수동)
 
 ---
 
 ## 8. 공유 / 배포 시 개인정보 체크
+
+- 편집기 백업/임시 파일(`*.bak`, `*.tmp`)은 `.gitignore`로 제외
+- `macropad.json` 은 레포에 포함된 파일이라, 편집기로 개인 경로/문구를 넣으면 커밋 전에 확인
 
 - 소스·설정 파일에는 개인정보 없음
 - 단, **사용자 PC에서 빌드한 결과물**에는 로컬 경로(예: `C:\Users\<사용자>\…`)가 들어감
@@ -183,7 +209,8 @@ dotnet run --project src/PadFlasher -- upload --dry-run          # macropad.json
 dotnet run --project src/PadFlasher -- upload                    # 패드에 쓰기
 dotnet run --project src/PadFlasher -- upload configs/00-factory-default.json   # 초기화
 dotnet run --project src/PadFlasher -- raw 03 FB FB FB           # 패킷 직접 전송(실험)
-dotnet run --project src/PadAgent
+dotnet run --project src/PadAgent                                # 트레이 + 편집기 창
+dotnet run --project src/PadFlasher -- upload --changed          # 바뀐 칸만 쓰기
 dotnet test
 .\tools\publish.ps1
 ```

@@ -15,7 +15,7 @@ public static class SlotDisplay
         PadKeysSlot { Binding: KeySequenceBinding k } => KeyNames.Sequence(k.Chords),
         PadKeysSlot p => p.Text,
         PcActionSlot pc => Action(pc.Action),
-        InvalidSlot bad => "⚠ " + bad.Text,
+        InvalidSlot bad => "[오류] " + bad.Text,
         _ => "",
     }, maxLength);
 
