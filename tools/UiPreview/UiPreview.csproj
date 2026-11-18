@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    편집기 화면(ui/)을 일반 브라우저에서 띄워 보는 개발용 서버. 패드/Windows 없이 화면 작업할 때 사용.
+      dotnet run (project: tools/UiPreview)  →  http://localhost:5180
+    실제 macropad.json 은 건드리지 않고 임시 폴더에 복사본을 만들어서 씀. 패드 쓰기는 흉내만 냄.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>$(MacroPadDotNet)</TargetFramework>
+    <RootNamespace>UiPreview</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MacroPad.Core\MacroPad.Core.csproj" />
+  </ItemGroup>
+
+</Project>

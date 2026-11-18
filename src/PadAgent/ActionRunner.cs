@@ -36,7 +36,7 @@ internal sealed class ActionRunner
             _ = SendInputsAsync(trigger);
     }
 
-    private static void StartProcess(ActionConfig action)
+    internal static void StartProcess(ActionConfig action)
     {
         var psi = new ProcessStartInfo
         {

@@ -10,10 +10,29 @@
     <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>PadAgent</RootNamespace>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <!-- 배포 폴더에 패키지 문서(xml)는 필요 없음 -->
+    <PublishReferencesDocumentationFiles>false</PublishReferencesDocumentationFiles>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\MacroPad.Core\MacroPad.Core.csproj" />
+  </ItemGroup>
+
+  <!-- 편집기 화면: WebView2(Windows 기본 Edge 엔진) 에 HTML/CSS 로 그림. 런타임이 없으면 기본 편집기로 대체 -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
+  </ItemGroup>
+
+  <!-- WinForms 만 쓰므로 패키지가 자동으로 넣는 WPF 용 참조는 뺌 (WindowsBase 버전 충돌 경고 방지) -->
+  <Target Name="RemoveWebView2WpfReference" BeforeTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <Reference Remove="@(Reference)" Condition="'%(Filename)' == 'Microsoft.Web.WebView2.Wpf'" />
+    </ItemGroup>
+  </Target>
+
+  <!-- 화면 파일(HTML/CSS/JS)은 exe 안에 넣어서 단일 파일 배포 유지 -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\ui\**\*" LinkBase="ui" LogicalName="ui/%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 
   <!-- publish 할 때 설정 파일도 같이 복사 (개발 중에는 솔루션 폴더의 macropad.json 을 바로 씀) -->

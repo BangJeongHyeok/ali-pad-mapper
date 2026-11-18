@@ -28,7 +28,7 @@ internal sealed class TrayApp : ApplicationContext
     private readonly HashSet<ushort> _heldTriggers = new();
     private FileSystemWatcher? _watcher;
     private int _reloadRetries;
-    private EditorForm? _editorForm;
+    private Form? _editorForm;
 
     private PadConfig? _config;
     private TriggerMap _triggers = TriggerMap.Empty;
@@ -52,6 +52,7 @@ internal sealed class TrayApp : ApplicationContext
         _menu.Items.Add(_statusItem);
         _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add(editorItem);
+        _menu.Items.Add("기본 편집기 열기", null, (_, _) => OpenEditor(classic: true));
         _menu.Items.Add("설정 파일 열기 (JSON)", null, (_, _) => OpenConfig());
         _menu.Items.Add("설정 다시 불러오기", null, (_, _) => Reload(showResult: true));
         _menu.Items.Add("패드에 설정 쓰기…", null, (_, _) => UploadToPad());
@@ -105,22 +106,36 @@ internal sealed class TrayApp : ApplicationContext
     /// <summary>편집기 창 열기 (이미 열려 있으면 앞으로). 다른 스레드에서 불러도 됨.</summary>
     public void OpenEditorFromAnyThread() => _ui.Post(_ => OpenEditor(), null);
 
-    private void OpenEditor()
+    /// <param name="classic">true 면 WinForms 기본 편집기. 아니면 WebView2 편집기 (런타임이 없으면 기본 편집기)</param>
+    private void OpenEditor(bool classic = false)
     {
-        if (_editorForm is { IsDisposed: false } existing)
+        var wantClassic = classic || !WebEditorForm.IsRuntimeAvailable();
+
+        if (_editorForm is { IsDisposed: false } open)
         {
-            if (existing.WindowState == FormWindowState.Minimized)
-                existing.WindowState = FormWindowState.Normal;
-            existing.Activate();
-            return;
+            if ((open is ClassicEditorForm) == wantClassic)
+            {
+                if (open.WindowState == FormWindowState.Minimized)
+                    open.WindowState = FormWindowState.Normal;
+                open.Activate();
+                return;
+            }
+
+            // 다른 종류의 편집기가 열려 있으면 닫고 새로 (저장 안 한 내용이 있으면 물어보고, 취소하면 그대로)
+            open.Close();
+            if (!open.IsDisposed) return;
         }
 
         try
         {
-            var form = new EditorForm(_configPath, _icon.Icon);
+            if (wantClassic && !classic)
+                AgentLog.Write("WebView2 런타임이 없어서 기본 편집기로 열어요.");
+            Form form = wantClassic
+                ? new ClassicEditorForm(_configPath, _icon.Icon)
+                : new WebEditorForm(_configPath, _icon.Icon);
             form.FormClosed += (_, _) =>
             {
-                _editorForm = null;
+                if (_editorForm == form) _editorForm = null;
                 form.Dispose();
             };
             _editorForm = form;
@@ -130,8 +145,8 @@ internal sealed class TrayApp : ApplicationContext
         catch (Exception ex) when (ex is FormatException or IOException or UnauthorizedAccessException)
         {
             AgentLog.Write("편집기 열기 실패: " + ex);
-            MessageBox.Show("설정 파일을 읽을 수 없어서 편집기를 못 열었어:\n" + ex.Message +
-                            "\n\n[설정 파일 열기 (JSON)]로 직접 고쳐줘.", "MacroPad", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show("설정 파일을 읽을 수 없어서 편집기를 열지 못했어요:\n" + ex.Message +
+                            "\n\n[설정 파일 열기 (JSON)]로 직접 고쳐 주세요.", "MacroPad", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
 

@@ -31,6 +31,8 @@
 | `src/MacroPad.Core` | 설정 파일 해석, 키 이름 표, 패드 프로토콜(패킷 생성), HID 통신 |
 | `src/PadFlasher` | 명령줄 도구. 패드 찾기 / 통신 확인 / 설정 쓰기 / 패킷 미리보기 |
 | `src/PadAgent` | 트레이 상주 앱 + **편집기 창**. Windows 시작 시 자동 실행, actions 처리, 패드에 쓰기 |
+| `ui` | 편집기 화면 (HTML/CSS/JS, exe 안에 포함) |
+| `tools/UiPreview` | 편집기 화면을 브라우저에서 미리 보는 개발용 서버 |
 | `tests/MacroPad.Tests` | 패킷 바이트 검증 테스트 (패드 없이 실행 가능) |
 
 **노브 볼륨처럼 패드에 새긴 기능은 PadAgent 없이도 동작해.** PadAgent는 "프로그램 실행" 같은 PC 쪽 동작이 필요할 때만 켜두면 돼.
@@ -94,29 +96,39 @@ dotnet run --project src/PadFlasher -- upload configs/01-top-knob-test.json
 
 ## 4. 편집기로 설정하기 (추천)
 
+![편집기](docs/images/editor-panel.png)
+
 ```powershell
 dotnet run --project src/PadAgent
 ```
-(또는 publish 한 `PadAgent.exe` 실행. 이미 트레이에 떠 있으면 그쪽 편집기 창이 열림. 트레이 아이콘 더블클릭도 같음)
+또는 publish 한 `PadAgent.exe` 를 실행하면 편집기 창이 열려. 이미 트레이에 떠 있으면 그쪽 창이 열리고, 트레이 아이콘을 더블클릭해도 같아.
 
-화면 구성: 왼쪽에 패드 모양(버튼 12개 + 노브 2개 × 왼쪽/누름/오른쪽), 오른쪽에 선택한 칸의 설정, 아래에 [다시 읽기] [저장] [패드에 쓰기] [전체 쓰기].
-
-1. 왼쪽 패드 그림에서 칸을 클릭
-2. 오른쪽에서 종류를 고르고 값을 넣음
-   | 종류 | 설명 | 어디에 저장 |
+1. 가운데 패드 그림에서 **버튼**을 누르거나, 오른쪽 **노브 설명**(왼쪽으로 돌리기 / 누르기 / 오른쪽으로 돌리기)을 누름
+2. 오른쪽에 열리는 목록에서 동작을 고름. 고르는 즉시 `macropad.json` 에 자동 저장돼
+   | 묶음 | 내용 | 동작하는 곳 |
    |---|---|---|
-   | 비워두기 | 패드에 쓸 때 이 칸은 건드리지 않음 | – |
-   | 미디어 키 | 볼륨, 음소거, 재생/정지, 다음/이전 곡 | 패드 (PC 프로그램 없이 동작) |
-   | 키 / 단축키 | `f5`, `ctrl+c`, `ctrl+a, ctrl+c` 등. **[키 눌러서 입력…]** 으로 직접 눌러서 넣을 수 있음 | 패드 (PC 프로그램 없이 동작) |
-   | PC 동작 | 프로그램/파일/폴더/URL 실행, 긴 단축키 묶음, 문자열(한글) 입력 | PC (PadAgent가 켜져 있을 때) |
-3. **[패드에 쓰기]**: 저장하고, 패드에 아직 안 쓴 칸만 씀. PC 동작은 저장 즉시 반영됨
+   | 할당 안 함 | 패드에 쓸 때 이 칸은 건드리지 않음 | – |
+   | 미디어 | 볼륨, 음소거, 재생/일시정지, 다음/이전 곡 | **패드** (PC 앱 없이 동작) |
+   | 자주 쓰는 단축키 | 복사, 붙여넣기, 화면 캡처, 작업 관리자 등 | **패드** |
+   | 직접 지정 › 키보드 단축키 | 칸을 누르고 키 조합을 직접 눌러서 입력 (연속 입력 가능) | **패드** |
+   | 직접 지정 › 프로그램/웹사이트/문장/단축키 묶음 | 프로그램·폴더·URL 열기, 문장(한글) 입력, 긴 단축키 묶음 | **PC** (MacroPad 실행 중일 때) |
+3. 아래 **[패드에 적용]** 을 누르면 바뀐 칸만 패드에 써. PC 동작은 저장 즉시 반영돼
 
-- PC 동작의 트리거 키(F13~F24, 모자라면 shift+/ctrl+ 조합)는 **자동으로 배정**돼서 신경 쓸 필요 없어.
-  이미 배정된 칸의 프로그램만 바꾸는 건 패드에 다시 쓸 필요가 없어.
-- 칸 색: 파랑 = 지정됨, **주황 = 패드에 아직 안 씀**, 회색 = 비어 있음, 빨강 = 잘못된 값
-- 패드는 설정을 읽어오는 기능이 없어서, **이 PC에서 마지막으로 쓴 내용**을
-  `%LOCALAPPDATA%\MacroPad\pad-514C-8850.json` 에 기록해 두고 비교해. 기록이 없으면 처음 한 번은 **[전체 쓰기]**.
+- 주황 점 = 패드에 아직 적용 안 한 칸. 패드는 설정을 읽어올 수 없어서, 이 PC에서 마지막으로 쓴 내용을
+  `%LOCALAPPDATA%\MacroPad\pad-514C-8850.json` 에 기록해 두고 비교해. 기록이 없으면 처음 한 번은 전체를 적용해.
+- PC 동작의 트리거 키(F13~F24, 모자라면 shift+/ctrl+ 조합)는 **자동 배정**이라 신경 쓸 필요 없어.
 - 편집기로 처음 저장하면 기존 `macropad.json` 의 주석이 없어지고 편집기 형식으로 바뀌어 (원본은 `macropad.json.bak`).
+- 화면은 WebView2(Windows 기본 Edge 엔진)로 그려. Windows 11은 기본 포함, Windows 10도 대부분 설치돼 있어.
+  없는 PC에서는 예전 WinForms 편집기("기본 편집기")가 대신 열려. 트레이 메뉴에서 직접 열 수도 있어.
+
+### 화면 고치기 (UI 개발)
+화면 파일은 `ui/` (index.html, app.css, app.js) 에 있고, 빌드할 때 exe 안에 들어가.
+패드나 Windows 없이 브라우저에서 바로 볼 수 있어:
+```powershell
+dotnet run --project tools/UiPreview
+```
+→ http://localhost:5180 . 실제 `macropad.json` 은 건드리지 않고 임시 복사본을 써. 패드 쓰기는 흉내만 내.
+`ui/` 파일을 고치고 브라우저를 새로 고치면 바로 반영돼.
 
 ---
 
@@ -234,7 +246,10 @@ dotnet run --project src/PadFlasher -- raw 03 FB FB FB
 | HID 장치 찾기 / 전송 | `src/MacroPad.Core/Hid/HidDevices.cs` |
 | PC 동작 종류 추가 (예: 앱별 볼륨) | `src/PadAgent/ActionRunner.cs`, `TriggerMap.cs` |
 | 트레이 메뉴 | `src/PadAgent/TrayApp.cs` |
-| 편집기 화면 | `src/PadAgent/Editor/EditorForm.cs`, `KeyCaptureDialog.cs` |
+| 편집기 화면 (모양, 동작 목록) | `ui/index.html`, `ui/app.css`, `ui/app.js` |
+| 화면 ↔ C# 요청 처리 | `src/MacroPad.Core/Editing/EditorSession.cs` |
+| 편집기 창 (WebView2 호스트) | `src/PadAgent/Editor/WebEditorForm.cs`, `WindowsEditorPlatform.cs` |
+| 기본 편집기 (WebView2 없을 때) | `src/PadAgent/Editor/ClassicEditorForm.cs`, `KeyCaptureDialog.cs` |
 | 칸 편집 규칙 (트리거 자동 배정 등) | `src/MacroPad.Core/Editing/ConfigEditor.cs` |
 | 설정 파일 저장 형식 | `src/MacroPad.Core/Config/ConfigWriter.cs` |
 | 패드에 쓴 기록 / 바뀐 칸만 쓰기 | `src/MacroPad.Core/Protocol/PadState.cs`, `UploadPlan.cs` |

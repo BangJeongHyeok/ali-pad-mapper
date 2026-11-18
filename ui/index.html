@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MacroPad</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div class="app" id="app" data-page="mapping">
+    <!-- 왼쪽 메뉴 -->
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-name">MacroPad</span>
+      </div>
+
+      <div class="device-card" id="deviceCard">
+        <div class="device-thumb" aria-hidden="true">
+          <span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span>
+          <i></i><i></i>
+        </div>
+        <div class="device-meta">
+          <div class="device-name">매크로 패드</div>
+          <div class="device-sub" id="deviceSub">12키 · 노브 2개</div>
+          <div class="conn" id="connBadge"><span class="dot"></span><span class="conn-text">확인 중</span></div>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-item active" data-nav="mapping">
+          <span class="icon" data-icon="grid"></span><span>버튼 할당</span>
+        </button>
+        <button class="nav-item" data-nav="settings">
+          <span class="icon" data-icon="sliders"></span><span>설정</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-foot">
+        <div class="save-state" id="saveState"><span class="icon" data-icon="check"></span><span>자동 저장됨</span></div>
+        <div class="file-name" id="fileName"></div>
+      </div>
+    </aside>
+
+    <!-- 가운데: 버튼 할당 -->
+    <main class="main page page-mapping">
+      <header class="topbar">
+        <div>
+          <h1>버튼 할당</h1>
+          <p class="subtitle">패드에서 바꿀 버튼이나 노브를 눌러 주세요.</p>
+        </div>
+        <div class="topbar-right">
+          <div class="segmented" id="layerTabs" role="tablist" aria-label="레이어"></div>
+          <button class="icon-btn" id="layerHelp" title="레이어 안내"><span class="icon" data-icon="info"></span></button>
+        </div>
+      </header>
+
+      <section class="stage" id="stage">
+        <div class="stage-inner">
+          <div class="pad" id="pad">
+            <div class="keys" id="keys"></div>
+            <div class="knobs" id="knobs"></div>
+          </div>
+          <div class="callouts" id="callouts"></div>
+        </div>
+        <div class="legend">
+          <span><i class="lg lg-pending"></i>패드에 아직 적용 안 됨</span>
+          <span><i class="lg lg-pc"></i>PC 동작 (MacroPad 실행 중일 때)</span>
+        </div>
+      </section>
+
+      <footer class="applybar" id="applyBar">
+        <div class="apply-status" id="applyStatus"></div>
+        <div class="apply-actions">
+          <button class="btn ghost" id="writeAllBtn">전체 다시 쓰기</button>
+          <button class="btn primary" id="applyBtn">패드에 적용</button>
+        </div>
+      </footer>
+    </main>
+
+    <!-- 가운데: 설정 -->
+    <main class="main page page-settings" id="settingsPage">
+      <header class="topbar">
+        <div>
+          <h1>설정</h1>
+          <p class="subtitle">앱 동작과 설정 파일, 패드 정보를 확인해요.</p>
+        </div>
+      </header>
+      <div class="settings" id="settings"></div>
+    </main>
+
+    <!-- 오른쪽: 동작 고르기 -->
+    <aside class="panel" id="panel" aria-hidden="true">
+      <div class="panel-head">
+        <div>
+          <div class="panel-kicker" id="panelKicker"></div>
+          <h2 id="panelTitle"></h2>
+        </div>
+        <button class="icon-btn" id="panelClose" title="닫기 (Esc)"><span class="icon" data-icon="x"></span></button>
+      </div>
+      <div class="current" id="current"></div>
+      <div class="search">
+        <span class="icon" data-icon="search"></span>
+        <input id="search" type="search" placeholder="동작 검색" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="panel-body" id="panelBody"></div>
+    </aside>
+  </div>
+
+  <div class="modal-backdrop" id="modal" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <h3 id="modalTitle"></h3>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-actions" id="modalActions"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

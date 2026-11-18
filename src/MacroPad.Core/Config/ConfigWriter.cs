@@ -7,7 +7,7 @@ namespace MacroPad.Core.Config;
 /// <summary>
 /// PadConfig → macropad.json 저장 (편집기에서 사용).
 /// 사람이 계속 직접 고칠 수도 있게 버튼은 한 줄에 4개씩, 노브/동작은 한 줄에 하나씩 씀.
-/// 원래 파일의 주석은 보존되지 않음 → 덮어쓰기 전에 macropad.json.bak 으로 백업.
+/// 원래 파일의 주석은 보존되지 않음 → 사람이 쓴 파일을 처음 덮어쓸 때 macropad.json.bak 으로 백업.
 /// </summary>
 public static class ConfigWriter
 {
@@ -150,7 +150,9 @@ public static class ConfigWriter
 
         var temp = path + ".tmp";
         File.WriteAllText(temp, text, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-        if (File.Exists(path))
+        // 사람이 직접 쓴(주석이 있을 수 있는) 파일만 백업. 편집기 형식끼리는 덮어써도 잃는 게 없음
+        // (자동 저장이라 매번 백업하면 원본 백업이 금방 덮여 버림)
+        if (File.Exists(path) && !IsEditorFormat(File.ReadAllText(path)))
             File.Copy(path, path + ".bak", overwrite: true);
         File.Move(temp, path, overwrite: true);
     }

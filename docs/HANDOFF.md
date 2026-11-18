@@ -15,7 +15,9 @@
   3. 키로 특정 프로그램 실행, 단축키 묶음 실행 ✅
   4. PC 시작 시 자동 실행 ✅
   5. exe만이 아니라 계속 수정 가능한 프로젝트 형태 ✅
-  6. **최종 목표: 키 매핑을 자유롭게 할 수 있는 Windows 응용 프로그램** → 편집기 1차 구현 (실물 확인 필요)
+  6. **최종 목표: 키 매핑을 자유롭게 할 수 있는 Windows 응용 프로그램**
+     → 1차 WinForms 편집기 (main 머지) → 사용자 피드백 "UI/UX가 구려서 파악이 어렵다"
+     → 2차: Logi Options+ 같은 깔끔한 기기 설정 앱을 참고해 WebView2 + HTML 로 새로 그림 (`claude/editor-redesign`)
 
 ---
 
@@ -122,13 +124,17 @@ src/MacroPad.Core/           OS 무관 로직 + Windows HID
   Protocol/PadState.cs       패드에 마지막으로 쓴 내용 기록 (%LOCALAPPDATA%\MacroPad\pad-VID-PID.json)
   Editing/ConfigEditor.cs    칸 단위 편집 모델. PC 동작 트리거(F13~F24 → shift+/ctrl+/ctrl+shift+) 자동 배정·회수
   Editing/SlotDisplay.cs     칸 표시 글자 ("[실행] notepad", "볼륨 +")
+  Editing/EditorSession.cs   화면 ↔ C# 메시지 처리 + 화면 상태(JSON). 자동 저장. OS 기능은 IEditorPlatform 으로
+  Editing/IEditorPlatform.cs
   Config/ConfigWriter.cs     macropad.json 저장 (버튼 4개씩 한 줄, .bak 백업, 임시 파일 후 교체)
   Keys/KeyNames.cs           키/미디어 표시 이름
 src/PadFlasher/              콘솔: list / info / upload [--dry-run] [--yes] [--changed] / keys / raw
 src/PadAgent/                WinForms 트레이 앱 + 편집기
   Program.cs                 단일 실행. 두 번째 실행 시 기존 프로세스에 "편집기 열기" 신호. --tray 면 트레이만
-  Editor/EditorForm.cs       편집기 창 (패드 그림 + 칸 설정 + 저장/패드에 쓰기)
-  Editor/KeyCaptureDialog.cs "키 눌러서 입력" (키 조합을 눌러서 기록)
+  Editor/WebEditorForm.cs    편집기 창 = WebView2 호스트. ui/ 를 exe 리소스에서 https://macropad.local/ 로 서빙
+  Editor/WindowsEditorPlatform.cs  IEditorPlatform 구현 (패드 쓰기, 파일 고르기, 자동 실행, 연결 확인)
+  Editor/ClassicEditorForm.cs  WinForms 기본 편집기 (WebView2 런타임 없을 때 대체)
+  Editor/KeyCaptureDialog.cs "키 눌러서 입력" (기본 편집기용)
   TrayApp.cs                 메뉴, 설정 자동 재로드(FileSystemWatcher), 패드에 쓰기, 알림
   TriggerMap.cs              actions → (VK, 수식 키 플래그) 표
   ActionRunner.cs            run(ShellExecute) / keys(SendInput) / text(유니코드 입력)
@@ -136,7 +142,9 @@ src/PadAgent/                WinForms 트레이 앱 + 편집기
   Native/InputSender.cs      SendInput, dwExtraInfo 서명 'MPAD'로 자기 입력 무시
   Native/StartupRegistration.cs
   AgentLog.cs                %LOCALAPPDATA%\MacroPad\agent.log
-tests/MacroPad.Tests/        xUnit 49케이스 (패킷 바이트, 설정 파일, 편집 모델, 저장 왕복, 패드 상태)
+ui/                          편집기 화면 index.html / app.css / app.js (프레임워크·CDN 없음, 오프라인)
+tools/UiPreview/             브라우저 미리보기 서버 (HttpListener, 가짜 패드). http://localhost:5180
+tests/MacroPad.Tests/        xUnit 61케이스 (패킷 바이트, 설정 파일, 편집 모델, 저장 왕복, 패드 상태, 화면 메시지)
 tools/publish.ps1            단일 exe publish (-SelfContained 선택, DebugType=none)
 .github/workflows/ci.yml     windows-latest: build → test → publish → 산출물 MacroPad-win-x64
 ```
@@ -148,6 +156,15 @@ macropad.json ─ layers ─▶ UploadPlan(.OnlyChanged) ─▶ K8850Protocol �
                                                                               └▶ PadState 기록
               └ actions ─▶ TriggerMap ─▶ KeyboardHook(F13~F24 삼킴) ─▶ ActionRunner
 ```
+
+편집기 화면 설계 메모 (2차):
+- 레이아웃: 왼쪽 메뉴(장치 카드·연결 상태, 버튼 할당/설정) / 가운데 패드 그림(키캡에 동작 표시, 노브는 오른쪽 설명 카드)
+  / 오른쪽 동작 패널(검색, 할당 안 함·미디어·자주 쓰는 단축키·직접 지정) / 아래 "패드에 적용" 막대
+- 자동 저장(파일), 패드 쓰기만 명시적 버튼. 주황 점 = 패드에 아직 적용 안 한 칸
+- 화면 메시지: { id, type, ... } → { id, ok, error?, result?, state }. 앱이 먼저 보내는 건 { type: "state", state }
+  (패드 연결/분리 2초 폴링, 창 활성화 시 외부 변경 확인)
+- 키 입력 받기는 JS 에서 e.code 기준 (한글 IME 상태여도 물리 키로 인식)
+- 라이트/다크 모드 (OS 설정 따라감)
 
 편집기 설계 메모:
 - 설정 파일 형식은 그대로 둠 (layers 칸 = 트리거 키, actions = 동작). 편집기가 트리거를 자동 배정해서
@@ -181,9 +198,12 @@ macropad.json ─ layers ─▶ UploadPlan(.OnlyChanged) ─▶ K8850Protocol �
 - [x] 바뀐 슬롯만 쓰기 (PadState 기록과 패킷 비교, 편집기 [패드에 쓰기] / `upload --changed`)
 - [x] CI (GitHub Actions `windows-latest` 에서 build + test + publish 산출물)
 - [x] 배포용 publish에 `-p:DebugType=none` 추가 (아래 8장)
-- [ ] 편집기 실사용 피드백 반영 (화면 배율 125/150%, 키 입력 창, 저장/쓰기 흐름)
-- [ ] 편집기에서 PC 동작 "지금 실행해보기" 버튼
-- [ ] 편집기가 열려 있는 동안 파일이 밖에서 바뀌면 알림 (지금은 [다시 읽기] 수동)
+- [ ] **새 편집기(WebView2) Windows 실물 확인** — 미리보기 서버에서만 확인함. 특히 키 입력 받기, 파일 고르기, 패드에 적용
+- [x] 편집기에서 PC 동작 "지금 열어 보기" 버튼
+- [x] 편집기가 열려 있는 동안 파일이 밖에서 바뀌면 자동 반영 (창 활성화 시)
+- [x] 패드 USB 연결/분리 감지 (편집기 화면에 표시. 트레이 아이콘 표시는 아직)
+- [ ] 칸 복사/붙여넣기 (EditorSession 에 copySlot 은 있음, 화면 연결 안 함)
+- [ ] Core 오류 메시지 말투 통일 (화면은 해요체, Core 오류는 아직 반말)
 
 ---
 

@@ -8,7 +8,7 @@ using MacroPad.Core.Protocol;
 namespace PadAgent.Editor;
 
 /// <summary>
-/// 설정 편집기 창.
+/// 기본 설정 편집기 창 (WinForms). WebView2 런타임이 없는 PC에서 대신 쓰임.
 ///  왼쪽: 패드 모양 (버튼 12개 + 노브 2개 × 왼쪽/누름/오른쪽) — 클릭해서 칸 선택
 ///  오른쪽: 선택한 칸에 넣을 동작 (비워두기 / 미디어 키 / 키·단축키 / PC 동작)
 ///  아래: 저장, 패드에 쓰기
@@ -16,7 +16,7 @@ namespace PadAgent.Editor;
 /// 입력하는 즉시 메모리 안의 설정(ConfigEditor)에 반영되고, [저장]해야 macropad.json 에 써짐.
 /// 저장하면 PadAgent 가 파일 변경을 감지해서 PC 동작을 바로 다시 불러옴.
 /// </summary>
-internal sealed class EditorForm : Form
+internal sealed class ClassicEditorForm : Form
 {
     private static readonly Color AssignedColor = Color.FromArgb(225, 236, 255);
     private static readonly Color PendingColor = Color.FromArgb(255, 226, 180);
@@ -51,7 +51,7 @@ internal sealed class EditorForm : Form
     private Button _saveButton = null!, _uploadChangedButton = null!, _uploadAllButton = null!, _reloadButton = null!;
 
     /// <exception cref="FormatException">설정 파일을 읽을 수 없을 때</exception>
-    public EditorForm(string configPath, Icon? icon)
+    public ClassicEditorForm(string configPath, Icon? icon)
     {
         _configPath = configPath;
 

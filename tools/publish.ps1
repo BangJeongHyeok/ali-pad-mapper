@@ -22,12 +22,9 @@ $common = @(
     '-o', $out,
     '-p:PublishSingleFile=true',
     '-p:DebugType=none',          # PDB/빌드 경로(C:\Users\<사용자>\…)가 exe에 남지 않게
+    '-p:IncludeNativeLibrariesForSelfExtract=true',  # WebView2Loader.dll 도 exe 하나에
     '--self-contained', $SelfContained.IsPresent.ToString().ToLower()
 )
-
-if ($SelfContained) {
-    $common += '-p:IncludeNativeLibrariesForSelfExtract=true'
-}
 
 dotnet publish (Join-Path $root 'src\PadAgent\PadAgent.csproj') @common
 if ($LASTEXITCODE -ne 0) { throw "PadAgent publish 실패" }
