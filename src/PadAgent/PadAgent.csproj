@@ -6,7 +6,9 @@
   -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>$(MacroPadDotNet)-windows</TargetFramework>
+    <TargetFramework>$(MacroPadDotNet)-windows10.0.19041.0</TargetFramework>
+    <!-- 재생 위치 이동(Windows 미디어 제어 API)이 Windows 10 1809 부터 있음 -->
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
     <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>PadAgent</RootNamespace>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>

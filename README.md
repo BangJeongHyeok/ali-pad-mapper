@@ -109,6 +109,7 @@ dotnet run --project src/PadAgent
    |---|---|---|
    | 할당 안 함 | 패드에 쓸 때 이 칸은 건드리지 않음 | – |
    | 미디어 | 볼륨, 음소거, 재생/일시정지, 다음/이전 곡 | **패드** (PC 앱 없이 동작) |
+   | 미디어 › 재생 위치 이동 | 지금 재생 중인 곡을 앞뒤로 (노브에 넣으면 턴테이블처럼) | **PC** |
    | 자주 쓰는 단축키 | 복사, 붙여넣기, 화면 캡처, 작업 관리자 등 | **패드** |
    | 직접 지정 › 키보드 단축키 | 칸을 누르고 키 조합을 직접 눌러서 입력 (연속 입력 가능) | **패드** |
    | 직접 지정 › 프로그램/웹사이트/문장/단축키 묶음 | 프로그램·폴더·URL 열기, 문장(한글) 입력, 긴 단축키 묶음 | **PC** (MacroPad 실행 중일 때) |
@@ -118,6 +119,11 @@ dotnet run --project src/PadAgent
   `%LOCALAPPDATA%\MacroPad\pad-514C-8850.json` 에 기록해 두고 비교해. 기록이 없으면 처음 한 번은 전체를 적용해.
 - PC 동작의 트리거 키(F13~F24, 모자라면 shift+/ctrl+ 조합)는 **자동 배정**이라 신경 쓸 필요 없어.
 - 편집기로 처음 저장하면 기존 `macropad.json` 의 주석이 없어지고 편집기 형식으로 바뀌어 (원본은 `macropad.json.bak`).
+- **재생 위치 이동** (노브 추천): 노브 한 칸에 0.5초·1초처럼 원하는 만큼 앞뒤로 옮겨. 유튜브 키보드 단축키(5초)와 달리
+  잘게 움직일 수 있고, 그 창이 앞에 없어도 돼. 빨리 돌리면 한 칸에 최대 6배까지 크게 움직여(끌 수 있음).
+  노브 한쪽에 넣으면 반대쪽 돌리기에도 반대 방향이 같이 들어가. **[지금 해 보기]** 로 패드 없이 바로 확인할 수 있어.
+  - Windows 미디어 제어(볼륨 키를 누르면 뜨는 미디어 팝업과 같은 기능)로 동작해서, 크롬/엣지 유튜브·유튜브 뮤직 앱 등
+    그 팝업에 나오는 앱이면 돼. 앱이 위치 이동을 지원하지 않으면 알림이 떠.
 - 화면은 WebView2(Windows 기본 Edge 엔진)로 그려. Windows 11은 기본 포함, Windows 10도 대부분 설치돼 있어.
   없는 PC에서는 예전 WinForms 편집기("기본 편집기")가 대신 열려. 트레이 메뉴에서 직접 열 수도 있어.
 
@@ -228,7 +234,9 @@ dotnet run --project src/PadFlasher -- raw 03 FB FB FB
   "f15": { "run": "https://www.google.com" },                        // URL
   "f16": { "run": "%USERPROFILE%\\Downloads" },                      // 폴더
   "f17": { "keys": ["ctrl+c", "alt+tab", "ctrl+v"], "delayMs": 60 }, // 단축키 묶음
-  "f18": { "text": "확인했습니다!" }                                  // 문자열 (한글 가능)
+  "f18": { "text": "확인했습니다!" },                                 // 문자열 (한글 가능)
+  "f19": { "seek": -1 },                                             // 재생 위치 1초 뒤로
+  "f20": { "seek": 0.5, "seekAccel": false }                         // 0.5초 앞으로, 빨리 돌려도 가속 안 함
 }
 ```
 - 트리거는 **F13~F24** 를 추천 (일반 키보드엔 없는 키라 다른 입력을 안 가로챔)
@@ -254,6 +262,7 @@ dotnet run --project src/PadFlasher -- raw 03 FB FB FB
 | 설정 파일 저장 형식 | `src/MacroPad.Core/Config/ConfigWriter.cs` |
 | 패드에 쓴 기록 / 바뀐 칸만 쓰기 | `src/MacroPad.Core/Protocol/PadState.cs`, `UploadPlan.cs` |
 | 키 가로채기 | `src/PadAgent/Native/KeyboardHook.cs` |
+| 재생 위치 이동 (가속·위치 계산 / Windows 미디어 제어) | `src/MacroPad.Core/Media/SeekTracker.cs`, `src/PadAgent/Media/MediaSeeker.cs` |
 
 프로토콜 요약 (패킷 64바이트):
 ```

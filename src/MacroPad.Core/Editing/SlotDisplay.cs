@@ -1,5 +1,6 @@
 using MacroPad.Core.Config;
 using MacroPad.Core.Keys;
+using MacroPad.Core.Media;
 using MacroPad.Core.Protocol;
 
 namespace MacroPad.Core.Editing;
@@ -44,6 +45,9 @@ public static class SlotDisplay
 
         if (!string.IsNullOrEmpty(action.Text))
             parts.Add("[입력] " + action.Text.ReplaceLineEndings(" "));
+
+        if (action.Seek is { } seek)
+            parts.Add("[이동] " + SeekTracker.Describe(seek));
 
         return parts.Count == 0 ? "[PC 동작]" : string.Join(" ", parts);
     }

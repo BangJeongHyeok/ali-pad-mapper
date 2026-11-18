@@ -35,4 +35,10 @@ public interface IEditorPlatform
 
     /// <summary>PC 동작 미리 실행 (프로그램/웹사이트 열기만)</summary>
     void RunAction(ActionConfig action);
+
+    /// <summary>
+    /// 지금 재생 중인 미디어의 위치를 seconds 만큼 이동 (미리 해 보기용, 가속 없음).
+    /// 결과 설명(예: "YouTube Music · 1:05")을 돌려줌. 실패하면 화면에 그대로 보여줄 문장으로 InvalidOperationException.
+    /// </summary>
+    Task<string> SeekMediaAsync(double seconds);
 }

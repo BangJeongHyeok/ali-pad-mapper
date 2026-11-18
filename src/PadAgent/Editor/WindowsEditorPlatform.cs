@@ -3,6 +3,7 @@ using MacroPad.Core;
 using MacroPad.Core.Config;
 using MacroPad.Core.Editing;
 using MacroPad.Core.Hid;
+using PadAgent.Media;
 using PadAgent.Native;
 
 namespace PadAgent.Editor;
@@ -74,4 +75,7 @@ internal sealed class WindowsEditorPlatform : IEditorPlatform
     public void SetStartupEnabled(bool enabled) => StartupRegistration.SetEnabled(enabled);
 
     public void RunAction(ActionConfig action) => ActionRunner.StartProcess(action);
+
+    public Task<string> SeekMediaAsync(double seconds) =>
+        MediaSeeker.Shared.SeekAsync(seconds, accel: false, describe: true);
 }

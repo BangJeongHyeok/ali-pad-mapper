@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -28,6 +29,7 @@ public static class ConfigWriter
         //             값: "volumeup" / "play" / "a" / "ctrl+c" / "ctrl+a, ctrl+c" / null(건드리지 않음)
         //   actions : PC 에이전트가 처리하는 동작. 패드 칸에 넣은 트리거 키(f13~f24 등)와 연결됨
         //             { "run": 프로그램/파일/URL, "args", "workingDir", "keys": [단축키…], "text": 문자열, "delayMs" }
+        //             { "seek": 재생 위치 이동(초, 음수=뒤로), "seekAccel": 빨리 돌리면 더 크게(기본 true) }
         //
         // 편집기로 저장하면 주석이 사라져. 이전 파일은 macropad.json.bak 에 백업됨.
         """;
@@ -178,6 +180,8 @@ public static class ConfigWriter
         if (action.Keys is { Count: > 0 } keys) parts.Add($"\"keys\": [{string.Join(", ", keys.Select(S))}]");
         if (action.Text is not null) parts.Add($"\"text\": {S(action.Text)}");
         if (action.DelayMs is { } d) parts.Add($"\"delayMs\": {d}");
+        if (action.Seek is { } seek) parts.Add($"\"seek\": {seek.ToString("0.###", CultureInfo.InvariantCulture)}");
+        if (action.SeekAccel is { } accel) parts.Add($"\"seekAccel\": {(accel ? "true" : "false")}");
         return parts.Count == 0 ? "{}" : "{ " + string.Join(", ", parts) + " }";
     }
 

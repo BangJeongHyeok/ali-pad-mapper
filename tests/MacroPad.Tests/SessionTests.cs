@@ -188,6 +188,51 @@ public sealed class SessionTests : IDisposable
     [InlineData("L0-K1-ccw")]
     public void SlotId_RoundTrips(string id) => Assert.Equal(id, EditorSession.SlotId(EditorSession.ParseSlotId(id)));
 
+    [Fact]
+    public async Task SetSlot_SeekOnKnob_SavesActionAndCanBeTested()
+    {
+        var session = NewSession("{}");
+
+        var reply = await Send(session, new { id = 1, type = "setSlot", slot = "L0-K0-ccw", value = new { type = "pc", mode = "seek", seconds = "0.5", direction = "back", accel = true } });
+        Assert.True(reply["ok"]!.GetValue<bool>(), reply["error"]?.ToString());
+        reply = await Send(session, new { id = 2, type = "setSlot", slot = "L0-K0-cw", value = new { type = "pc", mode = "seek", seconds = 0.5, direction = "forward", accel = false } });
+        Assert.True(reply["ok"]!.GetValue<bool>(), reply["error"]?.ToString());
+
+        var ccw = Slot(reply, "L0-K0-ccw");
+        Assert.Equal("seek", ccw["pc"]!["mode"]!.GetValue<string>());
+        Assert.Equal(-0.5, ccw["pc"]!["seek"]!.GetValue<double>());
+        Assert.True(ccw["pc"]!["seekAccel"]!.GetValue<bool>());
+        Assert.Equal("[이동] 0.5초 뒤로", ccw["label"]!.GetValue<string>());
+
+        // 파일에는 기본값(가속 켬)은 안 쓰고, 끈 것만 씀
+        var config = PadConfig.Load(ConfigPath);
+        var ccwTrigger = config.GetText(SlotRef.Knob(0, 0, KnobAction.Ccw))!;
+        var cwTrigger = config.GetText(SlotRef.Knob(0, 0, KnobAction.Cw))!;
+        Assert.NotEqual(ccwTrigger, cwTrigger);
+        Assert.Equal(-0.5, config.Actions[ccwTrigger]!.Seek);
+        Assert.Null(config.Actions[ccwTrigger]!.SeekAccel);
+        Assert.False(config.Actions[cwTrigger]!.SeekAccel);
+        Assert.Contains("\"seek\": -0.5", File.ReadAllText(ConfigPath));
+
+        reply = await Send(session, new { id = 3, type = "testAction", slot = "L0-K0-ccw" });
+        Assert.True(reply["ok"]!.GetValue<bool>(), reply["error"]?.ToString());
+        Assert.Equal([-0.5], _platform.Seeks);
+        Assert.Equal("테스트 · -0.5", reply["result"]!["message"]!.GetValue<string>());
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("-1")]
+    [InlineData("601")]
+    [InlineData("abc")]
+    public async Task SetSlot_SeekRejectsBadSeconds(string seconds)
+    {
+        var session = NewSession("{}");
+        var reply = await Send(session, new { id = 1, type = "setSlot", slot = "L0-K0-ccw", value = new { type = "pc", mode = "seek", seconds, direction = "back" } });
+        Assert.False(reply["ok"]!.GetValue<bool>());
+        Assert.Equal("empty", Slot(reply, "L0-K0-ccw")["type"]!.GetValue<string>());
+    }
+
     private sealed class FakePlatform : IEditorPlatform
     {
         public bool Connected { get; set; } = true;
@@ -214,5 +259,13 @@ public sealed class SessionTests : IDisposable
         public bool IsStartupEnabled() => false;
         public void SetStartupEnabled(bool enabled) { }
         public void RunAction(ActionConfig action) { }
+
+        public List<double> Seeks { get; } = new();
+
+        public Task<string> SeekMediaAsync(double seconds)
+        {
+            Seeks.Add(seconds);
+            return Task.FromResult($"테스트 · {seconds}");
+        }
     }
 }

@@ -46,6 +46,9 @@ const ICONS = {
   refresh: '<path d="M20 5v5h-5"/><path d="M19.4 10A8 8 0 1 0 18 15.5"/>',
   copy: '<rect x="8.5" y="8.5" width="11.5" height="11.5" rx="2"/><path d="M15.5 8.5V5.5A1.5 1.5 0 0 0 14 4H5.5A1.5 1.5 0 0 0 4 5.5V14a1.5 1.5 0 0 0 1.5 1.5h3"/>',
   layers: '<path d="M12 4l9 4.5-9 4.5-9-4.5z"/><path d="M3 13l9 4.5 9-4.5"/>',
+  rewind: '<path d="M11.5 6.5v11L4 12z"/><path d="M20 6.5v11L12.5 12z"/>',
+  forward: '<path d="M12.5 6.5v11L20 12z"/><path d="M4 6.5v11L11.5 12z"/>',
+  seek: '<path d="M9.5 7v10L3.5 12z"/><path d="M14.5 7v10l6-5z"/>',
 };
 
 const icon = (name) =>
@@ -206,6 +209,7 @@ const ui = {
   expanded: null,   // 펼친 '직접 지정' 항목 id
   search: '',
   saving: 0,
+  seekMirror: true, // 재생 위치 이동: 노브 반대쪽 돌리기도 같이 맞추기
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -234,6 +238,7 @@ function capInfo(slot) {
       if (pc.mode === 'app') return { icon: 'app', text: pc.runName || pc.run, cls: 'assigned pc' };
       if (pc.mode === 'web') return { icon: 'globe', text: pc.runName || pc.run, cls: 'assigned pc' };
       if (pc.mode === 'pckeys') return { icon: 'command', text: prettySeq((pc.keys || []).join(', ')), cls: 'assigned pc' };
+      if (pc.mode === 'seek') return { icon: pc.seek < 0 ? 'rewind' : 'forward', text: seekText(pc.seek), cls: 'assigned pc' };
       const t = (pc.text || '').replace(/\s+/g, ' ');
       return { icon: 'type', text: `“${t.length > 14 ? t.slice(0, 13) + '…' : t}”`, cls: 'assigned pc' };
     }
@@ -246,10 +251,13 @@ function kindText(slot) {
     case 'empty': return '할당 안 함';
     case 'media': return '미디어';
     case 'keys': return '키보드 단축키';
-    case 'pc': return { app: '프로그램 열기', web: '웹사이트 열기', text: '문장 입력', pckeys: '단축키 묶음 (PC)' }[slot.pc.mode];
+    case 'pc': return { app: '프로그램 열기', web: '웹사이트 열기', text: '문장 입력', pckeys: '단축키 묶음 (PC)', seek: '재생 위치 이동' }[slot.pc.mode];
     default: return '잘못된 값';
   }
 }
+
+/** -1 → "1초 뒤로", 0.5 → "0.5초 앞으로" */
+const seekText = (sec) => `${+Math.abs(sec).toFixed(2)}초 ${sec < 0 ? '뒤로' : '앞으로'}`;
 
 // ─────────────────────────── 그리기 ───────────────────────────
 
@@ -427,6 +435,7 @@ function renderPanelHead() {
   let detail = kindText(slot);
   if (slot.type === 'keys') detail += ' · ' + prettySeq(slot.padText);
   if (slot.type === 'pc' && (slot.pc.mode === 'app' || slot.pc.mode === 'web')) detail = slot.pc.run;
+  if (slot.type === 'pc' && slot.pc.mode === 'seek') detail = `지금 재생 중인 곡 · 빨리 돌리면 더 많이 ${slot.pc.seekAccel ? '켬' : '끔'}`;
   if (slot.type === 'empty' && slot.padRecord) detail = `패드에 남아 있는 값: ${slot.padRecord.source}`;
   if (slot.type === 'invalid') detail = slot.error;
 
@@ -447,7 +456,10 @@ function optionGroups() {
   });
   return [
     { title: null, items: [{ id: 'empty', label: '할당 안 함', desc: '패드에 원래 있던 값을 그대로 둬요', icon: 'slash', value: { type: 'empty' } }] },
-    { title: '미디어', items: media },
+    {
+      title: '미디어',
+      items: [...media, { id: 'custom:seek', label: '재생 위치 이동', desc: '유튜브·유튜브 뮤직 등 재생 중인 곡을 앞뒤로 (노브에 추천)', icon: 'seek', tag: 'pc', keywords: '탐색 감기 되감기 seek 턴테이블' }],
+    },
     {
       title: '자주 쓰는 단축키',
       items: PRESETS.map((p) => ({ id: 'preset:' + norm(p.text), label: p.label, hint: kbd(p.text), keywords: p.text, value: { type: 'pad', text: p.text } })),
@@ -523,20 +535,30 @@ async function onOptionClick(item, el) {
     if (ok) updatePanelMarks();
     return;
   }
+  // 재생 위치 이동은 기본값만으로도 쓸 수 있어서 고르면 바로 적용
+  if (item.id === 'custom:seek') {
+    const slot = slotById(ui.selected);
+    if (currentOptionId(slot) !== item.id) {
+      ui.expanded = item.id;
+      if (await applySeek(seekDefaults(slot))) buildPanelBody();
+      else updatePanelMarks();
+      return;
+    }
+  }
   // '직접 지정' 항목: 펼치기만 (값을 넣어야 적용)
   ui.expanded = ui.expanded === item.id ? null : item.id;
   updatePanelMarks();
   if (ui.expanded) {
     const first = el.querySelector('.recorder, input, textarea');
-    if (first) setTimeout(() => first.focus(), 30);
+    if (first && item.id !== 'custom:seek') setTimeout(() => first.focus(), 30);
   }
 }
 
-async function setSlot(value, errorEl) {
+async function setSlot(value, errorEl, slotId = ui.selected) {
   ui.saving++;
   renderSidebar();
   try {
-    const reply = await bridge.call('setSlot', { slot: ui.selected, value });
+    const reply = await bridge.call('setSlot', { slot: slotId, value });
     if (errorEl) errorEl.innerHTML = reply.ok ? '' : `${icon('alert')}<span>${esc(reply.error)}</span>`;
     if (!reply.ok && !errorEl) toast(reply.error, 'err');
     if (reply.ok && reply.result && reply.result.backup) {
@@ -584,6 +606,30 @@ function customBody(id, slot) {
           <textarea class="textarea" data-role="text" placeholder="확인했습니다. 감사합니다!">${esc(same('text') ? pc.text : '')}</textarea></div>
         <div class="help">한/영 상태와 상관없이 그대로 입력돼요. 줄바꿈은 Enter로 입력돼요.</div>
         ${err}`;
+    case 'custom:seek': {
+      const v = same('seek') ? { back: pc.seek < 0, seconds: Math.abs(pc.seek), accel: pc.seekAccel } : seekDefaults(slot);
+      const mirror = mirrorSlot(slot);
+      return `<div class="field"><label>방향</label>
+          <div class="segmented seek-dir" data-role="dir">
+            <button data-v="back" class="${v.back ? 'active' : ''}">${icon('rewind')}<span>뒤로</span></button>
+            <button data-v="forward" class="${v.back ? '' : 'active'}">${icon('forward')}<span>앞으로</span></button>
+          </div></div>
+        <div class="field"><label>한 칸에 이동할 시간</label>
+          <div class="chips" data-role="chips">${SEEK_STEPS.map((n) => `<button class="chip${n === v.seconds ? ' active' : ''}" data-v="${n}">${n}초</button>`).join('')}</div>
+          <div class="field-row seek-custom"><input class="input" type="number" data-role="seconds" min="0.1" max="600" step="0.1" value="${v.seconds}"><span class="unit">초</span></div></div>
+        <div class="toggle-row"><div><div class="toggle-title">빨리 돌리면 더 많이 이동</div>
+            <div class="help">천천히 돌리면 정확히 정한 시간만큼, 휙 돌리면 최대 6배까지 움직여요.</div></div>
+          <label class="switch"><input type="checkbox" data-role="accel" ${v.accel ? 'checked' : ''}><span></span></label></div>
+        ${mirror ? (mirrorFree(mirror)
+          ? `<label class="check"><input type="checkbox" data-role="mirror" ${ui.seekMirror ? 'checked' : ''}>
+              <span>${esc(mirror.position)}에도 반대 방향으로 같이 맞추기</span></label>`
+          : `<label class="check"><input type="checkbox" data-role="mirror">
+              <span>${esc(mirror.position)}에도 반대 방향으로 넣기<span class="check-sub">지금은 '${esc(capInfo(mirror).text)}'가 들어 있어요. 체크하면 바꿔요.</span></span></label>`) : ''}
+        <div class="field test-row"><button class="btn small" data-act="test">${icon('play')}<span>지금 해 보기</span></button>
+          <span class="test-result" data-role="result"></span></div>
+        <div class="help">크롬 유튜브, 유튜브 뮤직 앱처럼 지금 재생 중인 곡을 움직여요. 그 창이 앞에 없어도 되고, 유튜브 키보드 단축키(5초)보다 잘게 움직일 수 있어요.</div>
+        ${err}`;
+    }
     case 'custom:pckeys':
       return `<div class="field"><div class="recorder" tabindex="0"></div>
         <div class="recorder-tools"><span class="help">PC가 차례대로 눌러요. 개수 제한이 없어요.</span>
@@ -650,6 +696,48 @@ function bindCustom(id, body, slot) {
     return;
   }
 
+  if (id === 'custom:seek') {
+    const dir = body.querySelector('[data-role="dir"]');
+    const chips = body.querySelector('[data-role="chips"]');
+    const seconds = body.querySelector('[data-role="seconds"]');
+    const accel = body.querySelector('[data-role="accel"]');
+    const mirror = body.querySelector('[data-role="mirror"]');
+    const result = body.querySelector('[data-role="result"]');
+    const read = () => ({ back: dir.querySelector('.active').dataset.v === 'back', seconds: +seconds.value, accel: accel.checked });
+    const markChips = () => chips.querySelectorAll('.chip').forEach((c) => c.classList.toggle('active', +c.dataset.v === +seconds.value));
+    const apply = () => applySeek(read(), errorEl);
+
+    dir.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+      dir.querySelectorAll('button').forEach((x) => x.classList.toggle('active', x === b));
+      apply();
+    }));
+    chips.querySelectorAll('.chip').forEach((c) => c.addEventListener('click', () => {
+      seconds.value = c.dataset.v;
+      markChips();
+      apply();
+    }));
+    onCommit(seconds, () => { markChips(); apply(); });
+    accel.addEventListener('change', apply);
+    if (mirror) mirror.addEventListener('change', async () => {
+      const other = mirrorSlot(slotById(ui.selected));
+      if (other && !mirrorFree(other)) {
+        // 다른 동작이 있던 칸: 체크했을 때만 바꾸고, 바뀐 상태로 다시 그림
+        if (mirror.checked && await applySeek(read(), errorEl, true)) buildPanelBody();
+        return;
+      }
+      ui.seekMirror = mirror.checked;
+      if (mirror.checked) apply();
+    });
+
+    body.querySelector('[data-act="test"]').addEventListener('click', async () => {
+      result.textContent = '';
+      const r = await bridge.call('testAction', { slot: ui.selected });
+      if (!r.ok) errorEl.innerHTML = `${icon('alert')}<span>${esc(r.error)}</span>`;
+      else { errorEl.innerHTML = ''; result.textContent = r.result && r.result.message ? `→ ${r.result.message}` : '이동했어요'; }
+    });
+    return;
+  }
+
   if (id === 'custom:text') {
     const text = body.querySelector('[data-role="text"]');
     const apply = () => text.value && setSlot({ type: 'pc', mode: 'text', text: text.value }, errorEl);
@@ -663,6 +751,41 @@ function bindTest(body, errorEl) {
     const r = await bridge.call('testAction', { slot: ui.selected });
     if (!r.ok) errorEl.innerHTML = `${icon('alert')}<span>${esc(r.error)}</span>`;
   });
+}
+
+// ─────────────── 재생 위치 이동 ───────────────
+
+const SEEK_STEPS = [0.5, 1, 2, 3, 5, 10];
+
+/** 노브 왼쪽 돌리기는 뒤로, 그 밖은 앞으로. 1초, 가속 켬 */
+const seekDefaults = (slot) => ({ back: slot.knobAction === 'ccw', seconds: 1, accel: true });
+
+/** 노브 돌리기 칸이면 반대쪽 돌리기 칸 */
+function mirrorSlot(slot) {
+  if (slot.control !== 'knob' || slot.knobAction === 'press') return null;
+  const other = slot.knobAction === 'ccw' ? 'cw' : 'ccw';
+  return S.slots.find((s) => s.layer === slot.layer && s.control === 'knob' && s.index === slot.index && s.knobAction === other) || null;
+}
+
+/** 반대쪽 칸을 물어보지 않고 맞춰도 되는지: 비어 있거나 이미 재생 위치 이동 */
+const mirrorFree = (slot) => slot.type === 'empty' || (slot.type === 'pc' && slot.pc.mode === 'seek');
+
+/**
+ * 지금 칸에 재생 위치 이동을 넣고, 노브면 반대쪽 돌리기도 반대 방향으로 맞춤
+ * (반대쪽이 비어 있거나 이미 재생 위치 이동일 때만 — 다른 동작은 덮어쓰지 않음)
+ */
+async function applySeek(v, errorEl, forceMirror = false) {
+  const slot = slotById(ui.selected);
+  const value = (back) => ({ type: 'pc', mode: 'seek', seconds: v.seconds, direction: back ? 'back' : 'forward', accel: v.accel });
+  if (!(await setSlot(value(v.back), errorEl))) return false;
+
+  const mirror = mirrorSlot(slot);
+  if (!mirror) return true;
+  if (!forceMirror && !(ui.seekMirror && mirrorFree(mirror))) return true;
+  const target = (v.back ? 1 : -1) * v.seconds;
+  if (mirror.type === 'pc' && mirror.pc.mode === 'seek' && mirror.pc.seek === target && mirror.pc.seekAccel === v.accel) return true;
+  if (await setSlot(value(!v.back), null, mirror.id)) toast(`${mirror.position}에는 '${seekText(target)}'를 넣었어요.`);
+  return true;
 }
 
 /** Enter 또는 포커스를 벗어날 때 적용 (값이 바뀐 경우만) */

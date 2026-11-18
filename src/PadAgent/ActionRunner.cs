@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using MacroPad.Core.Config;
+using PadAgent.Media;
 using PadAgent.Native;
 
 namespace PadAgent;
@@ -9,6 +10,7 @@ internal sealed class ActionRunner
 {
     private readonly Action<string> _onError;
     private readonly SemaphoreSlim _inputGate = new(1, 1); // 키 입력 동작끼리 섞이지 않게 하나씩
+    private DateTime _lastSeekError = DateTime.MinValue;
 
     public ActionRunner(Action<string> onError)
     {
@@ -18,7 +20,14 @@ internal sealed class ActionRunner
     public void Run(Trigger trigger)
     {
         var action = trigger.Action;
-        AgentLog.Write($"트리거: {trigger.Name}");
+
+        // 재생 위치 이동은 노브를 돌릴 때마다 연달아 오므로 로그를 남기지 않음 (실패만 남김)
+        if (action.Seek is { } seek)
+            _ = SeekAsync(trigger, seek);
+        else
+        {
+            AgentLog.Write($"트리거: {trigger.Name}");
+        }
 
         if (!string.IsNullOrWhiteSpace(action.Run))
         {
@@ -76,6 +85,23 @@ internal sealed class ActionRunner
         finally
         {
             _inputGate.Release();
+        }
+    }
+
+    private async Task SeekAsync(Trigger trigger, double seconds)
+    {
+        try
+        {
+            await MediaSeeker.Shared.SeekAsync(seconds, trigger.Action.EffectiveSeekAccel);
+        }
+        catch (Exception ex)
+        {
+            AgentLog.Write($"[{trigger.Name}] 재생 위치 이동 실패: {ex}");
+            // 노브를 돌리는 동안 칸마다 알림이 뜨지 않게 가끔만
+            var now = DateTime.UtcNow;
+            if (now - _lastSeekError < TimeSpan.FromSeconds(30)) return;
+            _lastSeekError = now;
+            _onError(ex is InvalidOperationException ? ex.Message : "재생 위치 이동 실패: " + ex.Message);
         }
     }
 

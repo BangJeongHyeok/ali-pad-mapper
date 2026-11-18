@@ -126,6 +126,7 @@ src/MacroPad.Core/           OS 무관 로직 + Windows HID
   Editing/SlotDisplay.cs     칸 표시 글자 ("[실행] notepad", "볼륨 +")
   Editing/EditorSession.cs   화면 ↔ C# 메시지 처리 + 화면 상태(JSON). 자동 저장. OS 기능은 IEditorPlatform 으로
   Editing/IEditorPlatform.cs
+  Media/SeekTracker.cs       재생 위치 이동: 노브 가속(빨리 돌리면 최대 6배), 목표 위치 계산(연속 회전 시 직전 목표 기준), 곡 끝 1초 전까지
   Config/ConfigWriter.cs     macropad.json 저장 (버튼 4개씩 한 줄, .bak 백업, 임시 파일 후 교체)
   Keys/KeyNames.cs           키/미디어 표시 이름
 src/PadFlasher/              콘솔: list / info / upload [--dry-run] [--yes] [--changed] / keys / raw
@@ -137,14 +138,15 @@ src/PadAgent/                WinForms 트레이 앱 + 편집기
   Editor/KeyCaptureDialog.cs "키 눌러서 입력" (기본 편집기용)
   TrayApp.cs                 메뉴, 설정 자동 재로드(FileSystemWatcher), 패드에 쓰기, 알림
   TriggerMap.cs              actions → (VK, 수식 키 플래그) 표
-  ActionRunner.cs            run(ShellExecute) / keys(SendInput) / text(유니코드 입력)
+  ActionRunner.cs            run(ShellExecute) / keys(SendInput) / text(유니코드 입력) / seek(재생 위치 이동)
+  Media/MediaSeeker.cs       Windows 미디어 제어(GlobalSystemMediaTransportControls)로 재생 중인 앱의 위치 이동
   Native/KeyboardHook.cs     WH_KEYBOARD_LL, 트리거만 삼킴
   Native/InputSender.cs      SendInput, dwExtraInfo 서명 'MPAD'로 자기 입력 무시
   Native/StartupRegistration.cs
   AgentLog.cs                %LOCALAPPDATA%\MacroPad\agent.log
 ui/                          편집기 화면 index.html / app.css / app.js (프레임워크·CDN 없음, 오프라인)
 tools/UiPreview/             브라우저 미리보기 서버 (HttpListener, 가짜 패드). http://localhost:5180
-tests/MacroPad.Tests/        xUnit 61케이스 (패킷 바이트, 설정 파일, 편집 모델, 저장 왕복, 패드 상태, 화면 메시지)
+tests/MacroPad.Tests/        xUnit 83케이스 (패킷 바이트, 설정 파일, 편집 모델, 저장 왕복, 패드 상태, 화면 메시지, 재생 위치 이동)
 tools/publish.ps1            단일 exe publish (-SelfContained 선택, DebugType=none)
 .github/workflows/ci.yml     windows-latest: build → test → publish → 산출물 MacroPad-win-x64
 ```
@@ -184,6 +186,10 @@ macropad.json ─ layers ─▶ UploadPlan(.OnlyChanged) ─▶ K8850Protocol �
 - 트리거 키를 누르고 있을 때의 자동 반복은 첫 번째만 실행
 - 미디어 키는 단독으로만 가능 (`ctrl+volumeup` 불가). 밝기(`brightnessup/down`)는 패드 전용(PC 에이전트용 VK 없음)
 - 패드는 설정 읽기 불가 → 쓰기 전 상태 백업은 설정 파일로만
+- 재생 위치 이동(`seek`)은 Windows 미디어 제어 API 를 써서 PadAgent 대상이 `net10.0-windows10.0.19041.0`(Windows 10 1809 이상).
+  Windows SDK 연결 DLL 때문에 PadAgent.exe 가 약 1.4MB → 약 27MB 로 커짐 (줄이려면 필요한 인터페이스만 직접 COM 으로 선언하는 방법이 있음)
+- 재생 위치 이동은 앱마다 지원이 다름. 크롬 계열(유튜브, 유튜브 뮤직 웹앱)은 미디어 세션 seekto 로 받는 것으로 예상, **실물 확인 전**.
+  Windows 가 알려주는 재생 위치는 상태가 바뀔 때만 갱신될 수 있어서, 재생 중이면 LastUpdatedTime 이후 흐른 시간을 더해서 계산
 
 ---
 
@@ -204,6 +210,8 @@ macropad.json ─ layers ─▶ UploadPlan(.OnlyChanged) ─▶ K8850Protocol �
 - [x] 패드 USB 연결/분리 감지 (편집기 화면에 표시. 트레이 아이콘 표시는 아직)
 - [ ] 칸 복사/붙여넣기 (EditorSession 에 copySlot 은 있음, 화면 연결 안 함)
 - [ ] Core 오류 메시지 말투 통일 (화면은 해요체, Core 오류는 아직 반말)
+- [x] 노브로 재생 위치 이동 (턴테이블처럼, 가속) — `seek` 동작. **유튜브/유튜브 뮤직 실물 확인 전**
+- [ ] 재생 위치 이동이 안 되는 앱용 대체 수단 (앱별 단축키 보내기 등)
 
 ---
 

@@ -118,16 +118,34 @@ public sealed class ActionConfig
     /// <summary>keys 각 단계 사이 대기 시간(ms). 생략하면 40.</summary>
     public int? DelayMs { get; set; }
 
+    /// <summary>
+    /// 지금 재생 중인 미디어(유튜브, 유튜브 뮤직 등)의 재생 위치를 이 초만큼 이동. 음수면 뒤로.
+    /// 노브 돌리기에 넣으면 턴테이블처럼 앞뒤로 감을 수 있음. 예: -1 = 1초 뒤로, 0.5 = 0.5초 앞으로
+    /// </summary>
+    public double? Seek { get; set; }
+
+    /// <summary>seek: 노브를 빨리 돌리면 한 칸에 더 크게 이동 (생략하면 켬)</summary>
+    public bool? SeekAccel { get; set; }
+
     public const int DefaultDelayMs = 40;
+
+    /// <summary>seek 한 번에 이동할 수 있는 최대 초 (10분)</summary>
+    public const double MaxSeekSeconds = 600;
 
     [JsonIgnore] public int EffectiveDelayMs => Math.Clamp(DelayMs ?? DefaultDelayMs, 0, 5000);
 
-    /// <summary>run / keys / text 가 모두 비어 있는지</summary>
+    [JsonIgnore] public bool EffectiveSeekAccel => SeekAccel ?? true;
+
+    /// <summary>재생 위치 이동 동작인지</summary>
+    [JsonIgnore] public bool HasSeek => Seek is not null;
+
+    /// <summary>run / keys / text / seek 가 모두 비어 있는지</summary>
     [JsonIgnore]
     public bool IsEmpty =>
         string.IsNullOrWhiteSpace(Run)
         && (Keys is null || Keys.All(string.IsNullOrWhiteSpace))
-        && string.IsNullOrEmpty(Text);
+        && string.IsNullOrEmpty(Text)
+        && Seek is null;
 
     public ActionConfig Clone() => new()
     {
@@ -137,6 +155,8 @@ public sealed class ActionConfig
         Keys = Keys?.ToList(),
         Text = Text,
         DelayMs = DelayMs,
+        Seek = Seek,
+        SeekAccel = SeekAccel,
     };
 
     /// <summary>
@@ -157,8 +177,11 @@ public sealed class ActionConfig
             }
         }
 
-        if (string.IsNullOrWhiteSpace(Run) && chords.Count == 0 && string.IsNullOrEmpty(Text))
-            throw new FormatException("run / keys / text 중 하나는 있어야 해.");
+        if (Seek is { } seek && (!double.IsFinite(seek) || seek == 0 || Math.Abs(seek) > MaxSeekSeconds))
+            throw new FormatException($"seek 는 0이 아닌 -{MaxSeekSeconds}~{MaxSeekSeconds} 사이 초여야 해. (지금: {seek})");
+
+        if (string.IsNullOrWhiteSpace(Run) && chords.Count == 0 && string.IsNullOrEmpty(Text) && Seek is null)
+            throw new FormatException("run / keys / text / seek 중 하나는 있어야 해.");
 
         return chords;
     }

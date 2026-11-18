@@ -248,8 +248,10 @@ public sealed class EditorSession
             case "testAction":
             {
                 var slot = ParseSlotId(Str(msg, "slot") ?? throw new FormatException("칸이 지정되지 않았어요."));
+                if (_editor.Get(slot) is PcActionSlot { Action.Seek: { } seek })
+                    return new JsonObject { ["message"] = await _platform.SeekMediaAsync(seek) };
                 if (_editor.Get(slot) is not PcActionSlot { Action.Run: { Length: > 0 } } pc)
-                    throw new FormatException("미리 실행은 프로그램/웹사이트 열기만 할 수 있어요.");
+                    throw new FormatException("미리 실행은 프로그램/웹사이트 열기와 재생 위치 이동만 할 수 있어요.");
                 _platform.RunAction(new ActionConfig { Run = pc.Action.Run, Args = pc.Action.Args, WorkingDir = pc.Action.WorkingDir });
                 return null;
             }
@@ -318,6 +320,17 @@ public sealed class EditorSession
                             throw new FormatException("보낼 키를 입력해 주세요.");
                         action.Keys = keys;
                         break;
+                    case "seek":
+                    {
+                        var seconds = Num(value, "seconds");
+                        if (seconds is not { } s || !double.IsFinite(s) || s <= 0 || s > ActionConfig.MaxSeekSeconds)
+                            throw new FormatException($"이동할 시간은 0초보다 크고 {ActionConfig.MaxSeekSeconds:0}초 이하로 입력해 주세요.");
+                        s = Math.Round(s, 3);
+                        action.Seek = Str(value, "direction") == "back" ? -s : s;
+                        // 기본값(켬)이면 파일에 안 씀
+                        action.SeekAccel = value["accel"] is null || Bool(value, "accel") ? null : false;
+                        break;
+                    }
                     default:
                         throw new FormatException($"알 수 없는 PC 동작 종류예요: {mode}");
                 }
@@ -459,6 +472,8 @@ public sealed class EditorSession
                     ["keys"] = new JsonArray((pc.Action.Keys ?? new()).Select(k => (JsonNode)k).ToArray()),
                     ["text"] = pc.Action.Text,
                     ["runName"] = pc.Action.Run is { Length: > 0 } r ? SlotDisplay.RunName(r) : null,
+                    ["seek"] = pc.Action.Seek,
+                    ["seekAccel"] = pc.Action.EffectiveSeekAccel,
                 };
                 break;
             case InvalidSlot bad:
@@ -480,9 +495,10 @@ public sealed class EditorSession
         return vm;
     }
 
-    /// <summary>PC 동작의 대표 종류: app(프로그램/파일/폴더) / web / pckeys / text</summary>
+    /// <summary>PC 동작의 대표 종류: seek(재생 위치 이동) / app(프로그램/파일/폴더) / web / pckeys / text</summary>
     public static string PcMode(ActionConfig action)
     {
+        if (action.HasSeek) return "seek";
         if (!string.IsNullOrWhiteSpace(action.Run))
             return IsWebAddress(action.Run) ? "web" : "app";
         if (action.Keys is { Count: > 0 }) return "pckeys";
@@ -561,4 +577,16 @@ public sealed class EditorSession
         o[name] is JsonValue v && v.TryGetValue<bool>(out var b) && b;
 
     private static string? NullIfBlank(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+
+    /// <summary>숫자 값 (문자열 "1.5" 도 받음 — 화면 입력칸 값 그대로 올 수 있어서)</summary>
+    private static double? Num(JsonObject o, string name)
+    {
+        if (o[name] is not JsonValue v) return null;
+        if (v.TryGetValue<double>(out var d)) return d;
+        if (v.TryGetValue<int>(out var i)) return i;
+        if (v.TryGetValue<string>(out var s)
+            && double.TryParse(s.Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var p))
+            return p;
+        return null;
+    }
 }

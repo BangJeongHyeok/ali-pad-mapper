@@ -146,4 +146,13 @@ internal sealed class PreviewPlatform : IEditorPlatform
     public bool IsStartupEnabled() => _startup;
     public void SetStartupEnabled(bool enabled) => _startup = enabled;
     public void RunAction(ActionConfig action) => Console.WriteLine($"[실행] {action.Run} {action.Args}");
+
+    private TimeSpan _fakePosition = TimeSpan.FromSeconds(83);
+
+    public Task<string> SeekMediaAsync(double seconds)
+    {
+        _fakePosition += TimeSpan.FromSeconds(seconds);
+        if (_fakePosition < TimeSpan.Zero) _fakePosition = TimeSpan.Zero;
+        return Task.FromResult($"YouTube Music · 미리보기 곡 · {MacroPad.Core.Media.SeekTracker.Format(_fakePosition)}");
+    }
 }
