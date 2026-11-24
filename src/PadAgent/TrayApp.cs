@@ -25,7 +25,7 @@ internal sealed class TrayApp : ApplicationContext
     private readonly KeyboardHook _hook;
     private readonly ActionRunner _runner;
     private readonly System.Windows.Forms.Timer _reloadTimer;
-    private readonly HashSet<ushort> _heldTriggers = new();
+    private readonly Dictionary<ushort, Trigger> _heldTriggers = new(); // 누르고 있는 트리거 (뗄 때도 삼키려고)
     private FileSystemWatcher? _watcher;
     private int _reloadRetries;
     private Form? _editorForm;
@@ -56,6 +56,7 @@ internal sealed class TrayApp : ApplicationContext
         _menu.Items.Add("설정 파일 열기 (JSON)", null, (_, _) => OpenConfig());
         _menu.Items.Add("설정 다시 불러오기", null, (_, _) => Reload(showResult: true));
         _menu.Items.Add("패드에 설정 쓰기…", null, (_, _) => UploadToPad());
+        _menu.Items.Add("샘플 큐 모두 지우기", null, (_, _) => ClearCues());
         _menu.Items.Add(new ToolStripSeparator());
         _menu.Items.Add(_startupItem);
         _menu.Items.Add("로그 보기", null, (_, _) => OpenPath(AgentLog.FilePath));
@@ -71,7 +72,7 @@ internal sealed class TrayApp : ApplicationContext
         };
         _icon.DoubleClick += (_, _) => OpenEditor();
 
-        _runner = new ActionRunner(ShowError);
+        _runner = new ActionRunner(ShowError, ShowInfo);
 
         _reloadTimer = new System.Windows.Forms.Timer { Interval = 400 };
         _reloadTimer.Tick += (_, _) =>
@@ -166,19 +167,43 @@ internal sealed class TrayApp : ApplicationContext
     /// <summary>훅에서 호출됨. true 면 입력을 삼킴. 여기서는 빨리 끝내야 함 (무거운 일은 Post 로 넘김).</summary>
     private bool OnKey(ushort vk, bool down)
     {
+        var at = DateTimeOffset.Now; // 샘플 큐는 누른/뗀 순간이 중요해서 훅에서 바로 잼
+
         if (!down)
-            return _heldTriggers.Remove(vk); // 우리가 삼킨 키의 '뗌'도 삼킴
+        {
+            // 우리가 삼킨 키의 '뗌'도 삼킴. 큐 지정 키는 뗀 것도 알려줘야 함
+            if (!_heldTriggers.Remove(vk, out var released)) return false;
+            if (released.Action.IsCueSet)
+                _ui.Post(_ => _runner.Release(released, at), null);
+            return true;
+        }
 
         // 누르고 있으면 자동 반복으로 계속 들어오는데, 처음 한 번만 실행
-        if (_heldTriggers.Contains(vk))
+        if (_heldTriggers.ContainsKey(vk))
             return true;
 
         if (!_triggers.TryGet(vk, InputSender.CurrentModifiers(), out var trigger))
             return false;
 
-        _heldTriggers.Add(vk);
-        _ui.Post(_ => _runner.Run(trigger), null);
+        _heldTriggers[vk] = trigger;
+        _ui.Post(_ => _runner.Run(trigger, at), null);
         return true;
+    }
+
+    private void ClearCues()
+    {
+        var count = _runner.CueCount;
+        _runner.ClearCues();
+        ShowInfo(count > 0 ? $"샘플 큐 {count}개를 지웠어." : "저장한 샘플 큐가 없어.");
+    }
+
+    /// <summary>설정을 다시 읽어서 누르고 있던 키 기록을 버릴 때, 큐 지정 키가 눌린 채로 남지 않게 뗀 것으로 처리</summary>
+    private void ReleaseHeldTriggers()
+    {
+        var now = DateTimeOffset.Now;
+        foreach (var t in _heldTriggers.Values)
+            if (t.Action.IsCueSet) _runner.Release(t, now);
+        _heldTriggers.Clear();
     }
 
     // ─────────────────────────── 설정 ───────────────────────────
@@ -195,7 +220,7 @@ internal sealed class TrayApp : ApplicationContext
 
             _config = config;
             _triggers = triggers;
-            _heldTriggers.Clear();
+            ReleaseHeldTriggers();
             _reloadRetries = 0;
 
             _statusItem.Text = $"MacroPad Agent · PC 동작 {triggers.Count}개";

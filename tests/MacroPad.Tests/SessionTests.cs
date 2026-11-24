@@ -233,7 +233,7 @@ public sealed class SessionTests : IDisposable
         Assert.Equal("empty", Slot(reply, "L0-K0-ccw")["type"]!.GetValue<string>());
     }
 
-    private sealed class FakePlatform : IEditorPlatform
+    internal sealed class FakePlatform : IEditorPlatform
     {
         public bool Connected { get; set; } = true;
 

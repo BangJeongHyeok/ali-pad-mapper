@@ -30,6 +30,7 @@ public static class ConfigWriter
         //   actions : PC 에이전트가 처리하는 동작. 패드 칸에 넣은 트리거 키(f13~f24 등)와 연결됨
         //             { "run": 프로그램/파일/URL, "args", "workingDir", "keys": [단축키…], "text": 문자열, "delayMs" }
         //             { "seek": 재생 위치 이동(초, 음수=뒤로), "seekAccel": 빨리 돌리면 더 크게(기본 true) }
+        //             { "cue": 샘플 큐 번호(누르면 저장한 위치로 이동) }  { "cueSet": true (누른 채로 큐 키 = 지금 위치 저장) }
         //
         // 편집기로 저장하면 주석이 사라져. 이전 파일은 macropad.json.bak 에 백업됨.
         """;
@@ -182,6 +183,8 @@ public static class ConfigWriter
         if (action.DelayMs is { } d) parts.Add($"\"delayMs\": {d}");
         if (action.Seek is { } seek) parts.Add($"\"seek\": {seek.ToString("0.###", CultureInfo.InvariantCulture)}");
         if (action.SeekAccel is { } accel) parts.Add($"\"seekAccel\": {(accel ? "true" : "false")}");
+        if (action.Cue is { } cue) parts.Add($"\"cue\": {cue}");
+        if (action.CueSet is { } cueSet) parts.Add($"\"cueSet\": {(cueSet ? "true" : "false")}");
         return parts.Count == 0 ? "{}" : "{ " + string.Join(", ", parts) + " }";
     }
 

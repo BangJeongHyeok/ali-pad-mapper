@@ -331,6 +331,17 @@ public sealed class EditorSession
                         action.SeekAccel = value["accel"] is null || Bool(value, "accel") ? null : false;
                         break;
                     }
+                    case "cue":
+                    {
+                        var n = Num(value, "cue");
+                        if (n is not { } c || c != Math.Floor(c) || c < 1 || c > ActionConfig.MaxCue)
+                            throw new FormatException($"큐 번호는 1~{ActionConfig.MaxCue} 사이 정수로 입력해 주세요.");
+                        action.Cue = (int)c;
+                        break;
+                    }
+                    case "cueset":
+                        action.CueSet = true;
+                        break;
                     default:
                         throw new FormatException($"알 수 없는 PC 동작 종류예요: {mode}");
                 }
@@ -474,6 +485,7 @@ public sealed class EditorSession
                     ["runName"] = pc.Action.Run is { Length: > 0 } r ? SlotDisplay.RunName(r) : null,
                     ["seek"] = pc.Action.Seek,
                     ["seekAccel"] = pc.Action.EffectiveSeekAccel,
+                    ["cue"] = pc.Action.Cue,
                 };
                 break;
             case InvalidSlot bad:
@@ -495,10 +507,12 @@ public sealed class EditorSession
         return vm;
     }
 
-    /// <summary>PC 동작의 대표 종류: seek(재생 위치 이동) / app(프로그램/파일/폴더) / web / pckeys / text</summary>
+    /// <summary>PC 동작의 대표 종류: seek(재생 위치 이동) / cue(샘플 큐) / cueset(큐 지정 키) / app(프로그램/파일/폴더) / web / pckeys / text</summary>
     public static string PcMode(ActionConfig action)
     {
         if (action.HasSeek) return "seek";
+        if (action.HasCue) return "cue";
+        if (action.IsCueSet) return "cueset";
         if (!string.IsNullOrWhiteSpace(action.Run))
             return IsWebAddress(action.Run) ? "web" : "app";
         if (action.Keys is { Count: > 0 }) return "pckeys";

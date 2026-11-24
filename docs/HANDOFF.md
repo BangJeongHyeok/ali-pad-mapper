@@ -127,6 +127,7 @@ src/MacroPad.Core/           OS 무관 로직 + Windows HID
   Editing/EditorSession.cs   화면 ↔ C# 메시지 처리 + 화면 상태(JSON). 자동 저장. OS 기능은 IEditorPlatform 으로
   Editing/IEditorPlatform.cs
   Media/SeekTracker.cs       재생 위치 이동: 노브 가속(빨리 돌리면 최대 6배), 목표 위치 계산(연속 회전 시 직전 목표 기준), 곡 끝 1초 전까지
+  Media/CueBank.cs           샘플 큐: 큐 지정 키(펑션) 누름 상태 + 큐별 저장 위치. 누른 채로=저장, 그냥=이동(비었으면 저장), 짧게 톡=다음 한 번 저장
   Config/ConfigWriter.cs     macropad.json 저장 (버튼 4개씩 한 줄, .bak 백업, 임시 파일 후 교체)
   Keys/KeyNames.cs           키/미디어 표시 이름
 src/PadFlasher/              콘솔: list / info / upload [--dry-run] [--yes] [--changed] / keys / raw
@@ -212,6 +213,11 @@ macropad.json ─ layers ─▶ UploadPlan(.OnlyChanged) ─▶ K8850Protocol �
 - [ ] Core 오류 메시지 말투 통일 (화면은 해요체, Core 오류는 아직 반말)
 - [x] 노브로 재생 위치 이동 (턴테이블처럼, 가속) — `seek` 동작. **유튜브/유튜브 뮤직 실물 확인 전**
 - [ ] 재생 위치 이동이 안 되는 앱용 대체 수단 (앱별 단축키 보내기 등)
+- [x] 샘플 큐 (`cue` / `cueSet`) — 펑션 키를 누른 채로 큐 키 = 지금 위치 저장, 큐 키만 = 그 위치로 이동. **실물 확인 전**
+  - 패드가 단독 키(F13~F24) 바인딩을 누르고 있는 동안 계속 눌린 상태로 보내는지 미확인.
+    바로 떼서 보내는 경우를 대비해 "짧게 톡 → 3초 안의 다음 큐 키 한 번 저장"도 넣어 둠 (CueBank.TapMax/ArmTimeout)
+  - 큐 위치는 메모리에만 (앱 재시작 시 사라짐). 곡이 바뀌어도 안 지움 (사용자 요청: 곡이 바뀌면 제대로 안 돼도 됨)
+  - 키보드 훅에서 누른/뗀 시각을 재서 넘김 → 미디어 제어 연결이 늦어도 누른 순간의 위치를 저장
 
 ---
 
