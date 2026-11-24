@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text.Json.Nodes;
 using MacroPad.Core.Editing;
+using MacroPad.Core.Keys;
 using MacroPad.Core.Protocol;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
@@ -21,6 +22,10 @@ internal sealed class WebEditorForm : Form
     private readonly EditorSession _session;
     private readonly WebView2 _web;
     private readonly System.Windows.Forms.Timer _deviceTimer;
+    private bool _keyTestActive;
+
+    /// <summary>화면에서 '키 테스트'를 켜거나 껐을 때 (켜져 있는 동안 TrayApp 이 키를 이 창으로 넘기고 PC 동작은 실행 안 함)</summary>
+    public event Action<bool>? KeyTestChanged;
 
     /// <summary>이 PC에 WebView2 런타임이 있는지 (Windows 11 기본, Windows 10 대부분 설치돼 있음)</summary>
     public static bool IsRuntimeAvailable()
@@ -83,7 +88,7 @@ internal sealed class WebEditorForm : Form
         catch (Exception ex)
         {
             AgentLog.Write("편집기 화면 초기화 실패: " + ex);
-            MessageBox.Show(this, "편집기 화면을 띄우지 못했어요:\n" + ex.Message + "\n\n트레이 메뉴의 '기본 편집기 열기'를 써 주세요.",
+            MessageBox.Show(this, "편집기 화면을 띄우지 못했습니다:\n" + ex.Message + "\n\n트레이 메뉴의 '기본 편집기 열기'를 써 주십시오.",
                 "MacroPad", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             Close();
             return;
@@ -161,7 +166,20 @@ internal sealed class WebEditorForm : Form
             var reply = await _session.HandleAsync(json);
             if (!IsDisposed && _web.CoreWebView2 is not null)
                 _web.CoreWebView2.PostWebMessageAsJson(reply);
+            if (_session.KeyTestActive != _keyTestActive)
+            {
+                _keyTestActive = _session.KeyTestActive;
+                KeyTestChanged?.Invoke(_keyTestActive);
+            }
         });
+    }
+
+    /// <summary>키 테스트 중에 패드에서 온 키 (UI 스레드에서 부름)</summary>
+    public void OnPadKey(ushort vk, ModifierFlags mods, bool down, DateTimeOffset at)
+    {
+        if (IsDisposed || _web.CoreWebView2 is null) return;
+        if (_session.HandleKeyTest(vk, mods, down, at) is { } json)
+            _web.CoreWebView2.PostWebMessageAsJson(json);
     }
 
     private void PushState()
@@ -178,7 +196,7 @@ internal sealed class WebEditorForm : Form
         if (_session.IsBusy)
         {
             e.Cancel = true;
-            MessageBox.Show(this, "패드에 쓰는 중이에요. 끝나면 닫아 주세요.", "MacroPad", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, "패드에 쓰는 중입니다. 끝나면 닫아 주십시오.", "MacroPad", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
         base.OnFormClosing(e);

@@ -117,7 +117,7 @@ function chordFromEvent(e) {
     else if ((m = /^Numpad(\d)$/.exec(e.code))) key = 'numpad' + m[1];
     else if ((m = /^F(\d{1,2})$/.exec(e.code))) key = 'f' + m[1];
   }
-  if (!key) return { error: `'${e.code || e.key}' 키는 지원하지 않아요.` };
+  if (!key) return { error: `'${e.code || e.key}' 키는 지원하지 않습니다.` };
   const mods = [];
   if (e.ctrlKey) mods.push('ctrl');
   if (e.shiftKey) mods.push('shift');
@@ -171,6 +171,7 @@ const bridge = (() => {
   let seq = 0;
   const waiting = new Map();
   let onPush = () => {};
+  let onKeyTest = () => {};
 
   if (wv) {
     wv.addEventListener('message', (e) => {
@@ -180,6 +181,8 @@ const bridge = (() => {
         waiting.delete(msg.id);
       } else if (msg && msg.type === 'state') {
         onPush(msg.state);
+      } else if (msg && msg.type === 'keyTest') {
+        onKeyTest(msg.event);
       }
     });
   }
@@ -198,7 +201,7 @@ const bridge = (() => {
     return reply;
   }
 
-  return { call, inApp: !!wv, onPush: (fn) => { onPush = fn; } };
+  return { call, inApp: !!wv, onPush: (fn) => { onPush = fn; }, onKeyTest: (fn) => { onKeyTest = fn; } };
 })();
 
 // ─────────────────────────── 상태 ───────────────────────────
@@ -272,6 +275,7 @@ function renderAll() {
   renderPad();
   renderApplyBar();
   if (ui.page === 'settings') renderSettings();
+  if (ui.page === 'keytest') renderKeyTest();
   if (ui.selected) {
     renderPanelHead();
     updatePanelMarks();
@@ -299,7 +303,7 @@ function renderLayerTabs() {
   [...tabs.children].forEach((b, i) => {
     b.classList.toggle('active', i === ui.layer);
     const pending = S.slots.some((s) => s.layer === i && s.pending);
-    b.title = pending ? '패드에 아직 적용 안 한 변경이 있어요' : '';
+    b.title = pending ? '패드에 아직 적용하지 않은 변경이 있습니다' : '';
     b.innerHTML = `레이어 ${i + 1}${pending ? ' <span class="count">●</span>' : ''}`;
   });
 }
@@ -357,16 +361,16 @@ function renderApplyBar() {
   const status = $('#applyStatus');
   let cls, ic, title, sub;
   if (!S.device.connected) {
-    cls = 'unknown'; ic = 'plug'; title = '패드가 연결돼 있지 않아요';
-    sub = up.pending > 0 ? `패드에 적용할 변경 ${up.pending}개가 기다리고 있어요. USB를 연결해 주세요.` : 'USB를 연결하면 패드에 적용할 수 있어요.';
+    cls = 'unknown'; ic = 'plug'; title = '패드가 연결돼 있지 않습니다';
+    sub = up.pending > 0 ? `패드에 적용할 변경 ${up.pending}개가 기다리고 있습니다. USB를 연결해 주십시오.` : 'USB를 연결하면 패드에 적용할 수 있습니다.';
   } else if (!up.hasRecord) {
-    cls = 'unknown'; ic = 'info'; title = '이 PC에서 패드에 적용한 기록이 없어요';
-    sub = '처음 한 번은 전체를 적용해 두면, 다음부터는 바뀐 칸만 빠르게 적용돼요.';
+    cls = 'unknown'; ic = 'info'; title = '이 PC에서 패드에 적용한 기록이 없습니다';
+    sub = '처음 한 번은 전체를 적용해 두면, 다음부터는 바뀐 칸만 빠르게 적용됩니다.';
   } else if (up.pending > 0) {
     cls = 'pending'; ic = 'upload'; title = `패드에 적용할 변경 ${up.pending}개`;
-    sub = 'PC 동작은 이미 반영됐어요. 패드에 저장되는 칸만 적용하면 돼요.';
+    sub = 'PC 동작은 이미 반영됐습니다. 패드에 저장되는 칸만 적용하면 됩니다.';
   } else {
-    cls = 'synced'; ic = 'check'; title = '패드와 설정이 같아요';
+    cls = 'synced'; ic = 'check'; title = '패드와 설정이 같습니다';
     sub = up.lastWrittenAt ? `마지막 적용 ${up.lastWrittenAt}` : '';
   }
   status.className = 'apply-status ' + cls;
@@ -378,7 +382,7 @@ function renderApplyBar() {
   const n = up.hasRecord ? up.pending : S.slots.filter((s) => s.type !== 'empty' && s.type !== 'invalid').length;
   apply.innerHTML = `${icon('upload')}<span>${up.hasRecord ? '패드에 적용' : '전체 적용'}</span>${n > 0 ? `<span class="count">${n}</span>` : ''}`;
   apply.disabled = !S.device.connected || n === 0 || up.busy;
-  apply.title = !S.device.connected ? '패드를 연결해 주세요' : n === 0 ? '적용할 변경이 없어요' : '';
+  apply.title = !S.device.connected ? '패드를 연결해 주십시오' : n === 0 ? '적용할 변경이 없습니다' : '';
   writeAll.hidden = !up.hasRecord;
   writeAll.disabled = !S.device.connected || up.busy;
 }
@@ -431,8 +435,8 @@ function renderPanelHead() {
 
   const info = capInfo(slot);
   const where = slot.type === 'pc'
-    ? `<span class="tag pc" title="MacroPad 앱이 켜져 있을 때 동작해요">PC 동작 · ${esc(slot.pc.trigger.toUpperCase())}</span>`
-    : slot.type === 'empty' ? '' : '<span class="tag pad" title="패드에 저장돼서 PC 앱 없이도 동작해요">패드에 저장</span>';
+    ? `<span class="tag pc" title="MacroPad 앱이 켜져 있을 때 동작합니다">PC 동작 · ${esc(slot.pc.trigger.toUpperCase())}</span>`
+    : slot.type === 'empty' ? '' : '<span class="tag pad" title="패드에 저장돼서 PC 앱 없이도 동작합니다">패드에 저장</span>';
   const pending = slot.pending
     ? '<span class="tag warn">패드에 적용 필요</span>'
     : slot.type !== 'empty' && slot.type !== 'invalid' ? '<span class="tag ok">적용됨</span>' : '';
@@ -461,7 +465,7 @@ function optionGroups() {
     return { id: 'media:' + m.name, label: info.label, desc: info.desc, icon: info.icon, value: { type: 'pad', text: m.name } };
   });
   return [
-    { title: null, items: [{ id: 'empty', label: '할당 안 함', desc: '패드에 원래 있던 값을 그대로 둬요', icon: 'slash', value: { type: 'empty' } }] },
+    { title: null, items: [{ id: 'empty', label: '할당 안 함', desc: '패드에 원래 있던 값을 그대로 둡니다', icon: 'slash', value: { type: 'empty' } }] },
     {
       title: '미디어',
       items: [
@@ -489,8 +493,8 @@ function optionGroups() {
 }
 
 const TAG_HTML = {
-  pad: '<span class="tag pad" title="패드에 저장돼서 PC 앱 없이도 동작해요">패드</span>',
-  pc: '<span class="tag pc" title="MacroPad 앱이 켜져 있을 때 동작해요">PC</span>',
+  pad: '<span class="tag pad" title="패드에 저장돼서 PC 앱 없이도 동작합니다">패드</span>',
+  pc: '<span class="tag pc" title="MacroPad 앱이 켜져 있을 때 동작합니다">PC</span>',
 };
 
 function buildPanelBody() {
@@ -516,7 +520,7 @@ function buildPanelBody() {
       </div>`;
     }
   }
-  if (!html) html = `<div class="empty-search">'${esc(ui.search)}'에 맞는 동작이 없어요.</div>`;
+  if (!html) html = `<div class="empty-search">'${esc(ui.search)}'에 맞는 동작이 없습니다.</div>`;
 
   const body = $('#panelBody');
   body.innerHTML = html;
@@ -574,7 +578,7 @@ async function setSlot(value, errorEl, slotId = ui.selected) {
     if (errorEl) errorEl.innerHTML = reply.ok ? '' : `${icon('alert')}<span>${esc(reply.error)}</span>`;
     if (!reply.ok && !errorEl) toast(reply.error, 'err');
     if (reply.ok && reply.result && reply.result.backup) {
-      toast(`기존 설정 파일은 ${reply.result.backup.split(/[\\/]/).pop()} 으로 백업했어요.`, 'ok', 5000);
+      toast(`기존 설정 파일은 ${reply.result.backup.split(/[\\/]/).pop()} 으로 백업했습니다.`, 'ok', 5000);
     }
     return reply.ok;
   } finally {
@@ -592,7 +596,7 @@ function customBody(id, slot) {
   switch (id) {
     case 'custom:keys':
       return `<div class="field"><div class="recorder" tabindex="0"></div>
-        <div class="recorder-tools"><span class="help">패드가 이 키를 대신 눌러요. 여러 번 누르면 차례대로 입력돼요.</span>
+        <div class="recorder-tools"><span class="help">패드가 이 키를 대신 누릅니다. 여러 번 누르면 차례대로 입력됩니다.</span>
           <button class="linkish" data-act="clear">지우기</button></div></div>
         <div class="field"><label>또는 직접 입력</label>
           <input class="input mono" data-role="text" placeholder="예: ctrl+shift+esc, ctrl+a, ctrl+c" value="${esc(slot.type === 'keys' || slot.type === 'invalid' ? slot.padText : '')}" spellcheck="false"></div>
@@ -605,18 +609,18 @@ function customBody(id, slot) {
         <div class="field"><label>실행 인자 (선택)</label>
           <input class="input mono" data-role="args" placeholder="--new-window" value="${esc(same('app') ? pc.args || '' : '')}" spellcheck="false"></div>
         <div class="field"><button class="btn small" data-act="test">${icon('play')}<span>지금 열어 보기</span></button></div>
-        <div class="help">프로그램(.exe), 바로가기, 문서, 폴더 모두 돼요. %USERPROFILE% 같은 환경 변수도 쓸 수 있어요.</div>
+        <div class="help">프로그램(.exe), 바로가기, 문서, 폴더 모두 됩니다. %USERPROFILE% 같은 환경 변수도 쓸 수 있습니다.</div>
         ${err}`;
     case 'custom:web':
       return `<div class="field"><label>주소</label>
           <input class="input mono" data-role="url" placeholder="https://www.google.com" value="${esc(same('web') ? pc.run : '')}" spellcheck="false"></div>
         <div class="field"><button class="btn small" data-act="test">${icon('external')}<span>지금 열어 보기</span></button></div>
-        <div class="help">기본 브라우저로 열려요.</div>
+        <div class="help">기본 브라우저로 열립니다.</div>
         ${err}`;
     case 'custom:text':
       return `<div class="field"><label>입력할 문장</label>
           <textarea class="textarea" data-role="text" placeholder="확인했습니다. 감사합니다!">${esc(same('text') ? pc.text : '')}</textarea></div>
-        <div class="help">한/영 상태와 상관없이 그대로 입력돼요. 줄바꿈은 Enter로 입력돼요.</div>
+        <div class="help">한/영 상태와 상관없이 그대로 입력됩니다. 줄바꿈은 Enter로 입력됩니다.</div>
         ${err}`;
     case 'custom:seek': {
       const v = same('seek') ? { back: pc.seek < 0, seconds: Math.abs(pc.seek), accel: pc.seekAccel } : seekDefaults(slot);
@@ -630,16 +634,16 @@ function customBody(id, slot) {
           <div class="chips" data-role="chips">${SEEK_STEPS.map((n) => `<button class="chip${n === v.seconds ? ' active' : ''}" data-v="${n}">${n}초</button>`).join('')}</div>
           <div class="field-row seek-custom"><input class="input" type="number" data-role="seconds" min="0.1" max="600" step="0.1" value="${v.seconds}"><span class="unit">초</span></div></div>
         <div class="toggle-row"><div><div class="toggle-title">빨리 돌리면 더 많이 이동</div>
-            <div class="help">천천히 돌리면 정확히 정한 시간만큼, 휙 돌리면 최대 6배까지 움직여요.</div></div>
+            <div class="help">천천히 돌리면 정확히 정한 시간만큼, 휙 돌리면 최대 6배까지 움직입니다.</div></div>
           <label class="switch"><input type="checkbox" data-role="accel" ${v.accel ? 'checked' : ''}><span></span></label></div>
         ${mirror ? (mirrorFree(mirror)
           ? `<label class="check"><input type="checkbox" data-role="mirror" ${ui.seekMirror ? 'checked' : ''}>
               <span>${esc(mirror.position)}에도 반대 방향으로 같이 맞추기</span></label>`
           : `<label class="check"><input type="checkbox" data-role="mirror">
-              <span>${esc(mirror.position)}에도 반대 방향으로 넣기<span class="check-sub">지금은 '${esc(capInfo(mirror).text)}'가 들어 있어요. 체크하면 바꿔요.</span></span></label>`) : ''}
+              <span>${esc(mirror.position)}에도 반대 방향으로 넣기<span class="check-sub">지금은 '${esc(capInfo(mirror).text)}'가 들어 있습니다. 체크하면 바꿉니다.</span></span></label>`) : ''}
         <div class="field test-row"><button class="btn small" data-act="test">${icon('play')}<span>지금 해 보기</span></button>
           <span class="test-result" data-role="result"></span></div>
-        <div class="help">크롬 유튜브, 유튜브 뮤직 앱처럼 지금 재생 중인 곡을 움직여요. 그 창이 앞에 없어도 되고, 유튜브 키보드 단축키(5초)보다 잘게 움직일 수 있어요.</div>
+        <div class="help">크롬 유튜브, 유튜브 뮤직 앱처럼 지금 재생 중인 곡을 움직입니다. 그 창이 앞에 없어도 되고, 유튜브 키보드 단축키(5초)보다 잘게 움직일 수 있습니다.</div>
         ${err}`;
     }
     case 'custom:cue': {
@@ -648,29 +652,29 @@ function customBody(id, slot) {
       const hasSet = S.slots.some((s) => s.layer === slot.layer && s.type === 'pc' && s.pc.mode === 'cueset');
       return `<div class="field"><label>큐 번호</label>
           <div class="chips cue-chips" data-role="chips">${CUE_NUMBERS.map((n) => `<button class="chip${n === cur ? ' active' : ''}${used.has(n) ? ' used' : ''}" data-v="${n}"
-              title="${used.has(n) ? '다른 칸에서도 쓰는 번호예요 (같은 위치로 이동)' : ''}">${n}</button>`).join('')}</div>
-          <div class="help">같은 번호를 여러 칸에 넣으면 같은 위치를 함께 써요.</div></div>
+              title="${used.has(n) ? '다른 칸에서도 쓰는 번호입니다 (같은 위치로 이동)' : ''}">${n}</button>`).join('')}</div>
+          <div class="help">같은 번호를 여러 칸에 넣으면 같은 위치를 함께 씁니다.</div></div>
         <div class="howto">
-          <div><b>저장</b> 큐 지정 키를 누른 채로 이 칸을 누르면 지금 재생 위치가 저장돼요. 비어 있는 큐는 그냥 눌러도 저장돼요.</div>
-          <div><b>이동</b> 이 칸만 누르면 저장한 위치로 바로 이동해요.</div>
+          <div><b>저장</b> 큐 지정 키를 누른 채로 이 칸을 누르면 지금 재생 위치가 저장됩니다. 비어 있는 큐는 그냥 눌러도 저장됩니다.</div>
+          <div><b>이동</b> 이 칸만 누르면 저장한 위치로 바로 이동합니다.</div>
         </div>
-        ${hasSet ? '' : `<div class="note">${icon('info')}<span>이 레이어에 아직 큐 지정 키가 없어요. 다른 칸에 <b>큐 지정 키 (펑션)</b>을 넣으면 저장한 큐를 바꿀 수 있어요.</span></div>`}
-        <div class="help">저장한 위치는 MacroPad 앱을 끄거나 트레이 메뉴의 '샘플 큐 모두 지우기'를 누를 때까지 남아요. 곡이 바뀌어도 같은 시각으로 이동해요.</div>
+        ${hasSet ? '' : `<div class="note">${icon('info')}<span>이 레이어에 아직 큐 지정 키가 없습니다. 다른 칸에 <b>큐 지정 키 (펑션)</b>을 넣으면 저장한 큐를 바꿀 수 있습니다.</span></div>`}
+        <div class="help">저장한 위치는 MacroPad 앱을 끄거나 트레이 메뉴의 '샘플 큐 모두 지우기'를 누를 때까지 남습니다. 곡이 바뀌어도 같은 시각으로 이동합니다.</div>
         ${err}`;
     }
     case 'custom:cueset': {
       const free = S.slots.filter((s) => s.layer === slot.layer && s.control === 'button' && s.type === 'empty' && s.id !== slot.id);
       return `<div class="howto">
-          <div><b>누른 채로</b> 샘플 큐 키를 누르면 그 키에 지금 재생 위치를 저장해요 (이미 있으면 바꿔요).</div>
-          <div><b>짧게 톡</b> 누르면 3초 안에 누르는 큐 키 한 번만 저장해요. 한 번 더 톡 하면 취소.</div>
+          <div><b>누른 채로</b> 샘플 큐 키를 누르면 그 키에 지금 재생 위치를 저장합니다 (이미 있으면 바꿉니다).</div>
+          <div><b>짧게 톡</b> 누르면 3초 안에 누르는 큐 키 한 번만 저장합니다. 한 번 더 톡 하면 취소.</div>
         </div>
         ${free.length ? `<div class="field"><button class="btn small" data-act="fill">${icon('cue')}<span>빈 버튼 ${free.length}개를 샘플 큐로 채우기</span></button></div>` : ''}
-        <div class="help">패드에는 F13~F24 중 하나가 단독으로 들어가요 (누르고 있는 동안 다른 키를 받으려고).</div>
+        <div class="help">패드에는 F13~F24 중 하나가 단독으로 들어갑니다 (누르고 있는 동안 다른 키를 받으려고).</div>
         ${err}`;
     }
     case 'custom:pckeys':
       return `<div class="field"><div class="recorder" tabindex="0"></div>
-        <div class="recorder-tools"><span class="help">PC가 차례대로 눌러요. 개수 제한이 없어요.</span>
+        <div class="recorder-tools"><span class="help">PC가 차례대로 누릅니다. 개수 제한이 없습니다.</span>
           <button class="linkish" data-act="clear">지우기</button></div></div>
         ${err}`;
     default:
@@ -771,7 +775,7 @@ function bindCustom(id, body, slot) {
       result.textContent = '';
       const r = await bridge.call('testAction', { slot: ui.selected });
       if (!r.ok) errorEl.innerHTML = `${icon('alert')}<span>${esc(r.error)}</span>`;
-      else { errorEl.innerHTML = ''; result.textContent = r.result && r.result.message ? `→ ${r.result.message}` : '이동했어요'; }
+      else { errorEl.innerHTML = ''; result.textContent = r.result && r.result.message ? `→ ${r.result.message}` : '이동했습니다'; }
     });
     return;
   }
@@ -794,7 +798,7 @@ function bindCustom(id, body, slot) {
         if (!(await setSlot({ type: 'pc', mode: 'cue', cue: nextFreeCue(layer) }, errorEl, id2))) break;
         n++;
       }
-      if (n) toast(`빈 버튼 ${n}개에 샘플 큐를 넣었어요. [패드에 적용]을 눌러 주세요.`, 'ok');
+      if (n) toast(`빈 버튼 ${n}개에 샘플 큐를 넣었습니다. [패드에 적용]을 눌러 주십시오.`, 'ok');
       buildPanelBody();
     });
     return;
@@ -846,7 +850,7 @@ async function applySeek(v, errorEl, forceMirror = false) {
   if (!forceMirror && !(ui.seekMirror && mirrorFree(mirror))) return true;
   const target = (v.back ? 1 : -1) * v.seconds;
   if (mirror.type === 'pc' && mirror.pc.mode === 'seek' && mirror.pc.seek === target && mirror.pc.seekAccel === v.accel) return true;
-  if (await setSlot(value(!v.back), null, mirror.id)) toast(`${mirror.position}에는 '${seekText(target)}'를 넣었어요.`);
+  if (await setSlot(value(!v.back), null, mirror.id)) toast(`${mirror.position}에는 '${seekText(target)}'를 넣었습니다.`);
   return true;
 }
 
@@ -890,7 +894,7 @@ function makeRecorder(el, initial, onChange, max) {
   const render = () => {
     el.innerHTML = chords.length
       ? chords.map((c) => `<span class="chord"><span class="kbd">${esc(prettyChord(c))}</span></span>`).join('<span class="sep">→</span>')
-      : '<span class="placeholder">여기를 누르고 키를 입력하세요</span>';
+      : '<span class="placeholder">여기를 누르고 키를 입력하십시오</span>';
   };
   render();
 
@@ -904,7 +908,7 @@ function makeRecorder(el, initial, onChange, max) {
     if (!r) return;
     if (r.error) { toast(r.error, 'err'); return; }
     if (fresh) { chords = []; fresh = false; }
-    if (chords.length >= max) { toast(`최대 ${max}개까지 넣을 수 있어요.`, 'err'); return; }
+    if (chords.length >= max) { toast(`최대 ${max}개까지 넣을 수 있습니다.`, 'err'); return; }
     chords.push(r.chord);
     render();
     onChange(chords);
@@ -920,9 +924,9 @@ function makeRecorder(el, initial, onChange, max) {
 
 async function startApply(onlyChanged) {
   const preview = await bridge.call('previewUpload', { onlyChanged });
-  if (!preview.ok) return showModal('적용할 수 없어요', `<p>${esc(preview.error)}</p>`, [{ label: '닫기' }]);
+  if (!preview.ok) return showModal('적용할 수 없습니다', `<p>${esc(preview.error)}</p>`, [{ label: '닫기' }]);
   const items = preview.result.items;
-  if (!items.length) return toast('패드에 적용할 변경이 없어요.', 'ok');
+  if (!items.length) return toast('패드에 적용할 변경이 없습니다.', 'ok');
 
   const list = items.slice(0, 40).map((i) => {
     const s = slotById(i.slot);
@@ -930,10 +934,10 @@ async function startApply(onlyChanged) {
     return `<li><span class="where">레이어 ${i.layer} · ${esc(slotWhere(i.slot))}</span><span class="what">${icon(info.icon)}${esc(info.text)}</span></li>`;
   }).join('');
   const more = items.length > 40 ? `<p style="margin-top:8px">외 ${items.length - 40}개</p>` : '';
-  const skipped = preview.result.skipped ? ` 패드와 같은 ${preview.result.skipped}개는 건너뛰어요.` : '';
+  const skipped = preview.result.skipped ? ` 패드와 같은 ${preview.result.skipped}개는 건너뜁니다.` : '';
   const firstTime = !S.upload.hasRecord;
   showModal(onlyChanged || firstTime ? `패드에 ${items.length}개 적용` : `전체 ${items.length}개 다시 쓰기`,
-    `<p>아래 칸을 패드에 저장해요.${skipped} 몇 초면 끝나요.</p><ul class="change-list">${list}</ul>${more}`,
+    `<p>아래 칸을 패드에 저장합니다.${skipped} 몇 초면 끝납니다.</p><ul class="change-list">${list}</ul>${more}`,
     [{ label: '취소' }, { label: '적용', primary: true, onClick: () => runApply(onlyChanged, items.length) }]);
 }
 
@@ -944,11 +948,11 @@ function slotWhere(id) {
 }
 
 async function runApply(onlyChanged, count) {
-  showModal('패드에 쓰는 중', `<div class="progress"><span class="spinner"></span><span>${count}개 칸을 쓰고 있어요. USB를 뽑지 마세요.</span></div>`, []);
+  showModal('패드에 쓰는 중', `<div class="progress"><span class="spinner"></span><span>${count}개 칸을 쓰고 있습니다. USB를 뽑지 마십시오.</span></div>`, []);
   const r = await bridge.call('upload', { onlyChanged });
   hideModal();
-  if (r.ok) toast(`패드에 ${r.result.written}개를 적용했어요. 바로 눌러서 확인해 보세요.`, 'ok', 4500);
-  else showModal('패드에 쓰지 못했어요', `<p>${esc(r.error)}</p><p style="margin-top:8px">USB 연결을 확인하고 다시 시도해 주세요. 계속 안 되면 설정 › 로그 열기에서 원인을 볼 수 있어요.</p>`, [{ label: '닫기' }]);
+  if (r.ok) toast(`패드에 ${r.result.written}개를 적용했습니다. 바로 눌러서 확인해 보십시오.`, 'ok', 4500);
+  else showModal('패드에 쓰지 못했습니다', `<p>${esc(r.error)}</p><p style="margin-top:8px">USB 연결을 확인하고 다시 시도해 주십시오. 계속 안 되면 설정 › 로그 열기에서 원인을 볼 수 있습니다.</p>`, [{ label: '닫기' }]);
 }
 
 // ─────────────────────────── 설정 화면 ───────────────────────────
@@ -956,19 +960,19 @@ async function runApply(onlyChanged, count) {
 function renderSettings() {
   const a = S.advanced;
   const unref = S.unreferencedActions.length
-    ? `<div class="card-row"><div><h3>쓰이지 않는 PC 동작 ${S.unreferencedActions.length}개</h3><p>어느 칸에도 연결되지 않은 동작이 설정 파일에 남아 있어요: ${esc(S.unreferencedActions.join(', '))}</p></div></div>`
+    ? `<div class="card-row"><div><h3>쓰이지 않는 PC 동작 ${S.unreferencedActions.length}개</h3><p>어느 칸에도 연결되지 않은 동작이 설정 파일에 남아 있습니다: ${esc(S.unreferencedActions.join(', '))}</p></div></div>`
     : '';
   $('#settings').innerHTML = `
     <section class="card">
       <div class="card-row">
-        <div><h3>Windows 시작 시 실행</h3><p>로그인하면 트레이에 조용히 떠서 PC 동작을 처리해요.</p></div>
+        <div><h3>Windows 시작 시 실행</h3><p>로그인하면 트레이에 조용히 떠서 PC 동작을 처리합니다.</p></div>
         <label class="switch"><input type="checkbox" id="startupToggle" ${S.startup ? 'checked' : ''}><span></span></label>
       </div>
     </section>
 
     <section class="card">
       <h3>설정 파일</h3>
-      <p>편집기에서 바꾸면 자동으로 저장돼요. 직접 고쳐도 되고, 고치면 편집기에 바로 반영돼요.</p>
+      <p>편집기에서 바꾸면 자동으로 저장됩니다. 직접 고쳐도 되고, 고치면 편집기에 바로 반영됩니다.</p>
       <div class="path">${esc(S.config.path)}</div>
       <div class="btns">
         <button class="btn small" data-act="openConfig">${icon('file')}<span>파일 열기</span></button>
@@ -979,7 +983,7 @@ function renderSettings() {
 
     <section class="card">
       <div class="card-row">
-        <div><h3>패드</h3><p>${S.device.connected ? '연결돼 있어요.' : '연결돼 있지 않아요.'}</p></div>
+        <div><h3>패드</h3><p>${S.device.connected ? '연결돼 있습니다.' : '연결돼 있지 않습니다.'}</p></div>
         <span class="conn ${S.device.connected ? 'on' : 'off'}"><span class="dot"></span>${S.device.connected ? '연결됨' : '연결 안 됨'}</span>
       </div>
       <dl class="kv">
@@ -988,12 +992,12 @@ function renderSettings() {
         <dt>마지막 적용</dt><dd>${esc(S.upload.lastWrittenAt || '기록 없음')}</dd>
         <dt>고급 값</dt><dd>노브 시작 슬롯 ${a.knobSlotBase} · 리포트 ID ${esc(a.reportIdMode)} · 미디어 바이트 ${a.mediaModeByte} · 키 간격 ${a.keyDelay}</dd>
       </dl>
-      <p style="margin-top:10px;font-size:12px">고급 값은 처음 연결이 안 될 때만 설정 파일의 advanced 에서 바꿔요.</p>
+      <p style="margin-top:10px;font-size:12px">고급 값은 처음 연결이 안 될 때만 설정 파일의 advanced 에서 바꿉니다.</p>
     </section>
 
     <section class="card">
       <div class="card-row">
-        <div><h3>문제 해결</h3><p>트리거 키 처리, 패드 쓰기 기록이 남아 있어요.</p></div>
+        <div><h3>문제 해결</h3><p>트리거 키 처리, 패드 쓰기 기록이 남아 있습니다.</p></div>
         <button class="btn small" data-act="openLog">${icon('external')}<span>로그 열기</span></button>
       </div>
       ${unref}
@@ -1001,12 +1005,12 @@ function renderSettings() {
 
   $('#startupToggle').addEventListener('change', async (e) => {
     const r = await bridge.call('setStartup', { enabled: e.target.checked });
-    toast(r.ok ? (e.target.checked ? 'Windows 시작 시 실행할게요.' : '자동 실행을 껐어요.') : r.error, r.ok ? 'ok' : 'err');
+    toast(r.ok ? (e.target.checked ? 'Windows를 시작할 때 실행합니다.' : '자동 실행을 껐습니다.') : r.error, r.ok ? 'ok' : 'err');
   });
   $('#settings').querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', async () => {
     const r = await bridge.call(b.dataset.act);
     if (!r.ok) toast(r.error, 'err');
-    else if (b.dataset.act === 'reload') toast('설정 파일을 다시 불러왔어요.', 'ok');
+    else if (b.dataset.act === 'reload') toast('설정 파일을 다시 불러왔습니다.', 'ok');
   }));
 }
 
@@ -1044,10 +1048,130 @@ function toast(message, kind = 'ok', ms = 3200) {
 // ─────────────────────────── 이벤트 ───────────────────────────
 
 function setPage(page) {
+  const was = ui.page;
   ui.page = page;
   $('#app').dataset.page = page;
   document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('active', b.dataset.nav === page));
   if (page === 'settings') renderSettings();
+  if (page !== was && (page === 'keytest' || was === 'keytest')) {
+    if (page === 'keytest') { closePanel(); kt.down.clear(); renderKeyTest(); }
+    bridge.call('keyTest', { enabled: page === 'keytest' });
+  }
+}
+
+// ─────────────────────────── 키 테스트 ───────────────────────────
+
+const kt = {
+  log: [],              // 최근 기록 (새 것이 앞)
+  down: new Map(),      // 누르고 있는 칸 id → 누른 횟수 (같은 키가 여러 칸에 있을 수 있어서)
+  count: new Map(),     // 칸 id → 누른 횟수
+};
+
+const KT_MAX = 200;
+
+function onKeyTestEvent(e) {
+  if (!e) return;
+  for (const id of e.slots) {
+    if (e.down) {
+      kt.down.set(id, (kt.down.get(id) || 0) + 1);
+      kt.count.set(id, (kt.count.get(id) || 0) + 1);
+    } else {
+      const n = (kt.down.get(id) || 1) - 1;
+      if (n > 0) kt.down.set(id, n); else kt.down.delete(id);
+    }
+  }
+  kt.log.unshift(e);
+  if (kt.log.length > KT_MAX) kt.log.length = KT_MAX;
+  if (ui.page === 'keytest') { renderKeyTestPad(); renderKeyTestLog(); }
+}
+
+function renderKeyTest() {
+  const tabs = $('#testLayerTabs');
+  tabs.innerHTML = Array.from({ length: S.layout.layerCount }, (_, i) =>
+    `<button data-layer="${i}" class="${i === ui.layer ? 'active' : ''}">레이어 ${i + 1}</button>`).join('');
+
+  const root = $('#keytest');
+  if (!root.dataset.built) {
+    root.dataset.built = '1';
+    root.innerHTML = `
+      <section class="kt-left">
+        <div class="kt-pad" id="ktPad"></div>
+        <div class="kt-notes">
+          <div class="note">${icon('info')}<span>테스트하는 동안에는 PC 동작(프로그램 열기, 샘플 큐 등)이 실행되지 않습니다.
+            패드에 저장된 동작(볼륨, 단축키 등)은 패드가 직접 보내는 거라 그대로 동작합니다.</span></div>
+          ${bridge.inApp ? '' : '<div class="help">미리보기: 칸을 마우스로 누르면 패드에서 누른 것처럼 기록됩니다.</div>'}
+        </div>
+      </section>
+      <section class="kt-right card">
+        <div class="kt-log-head"><h3>기록</h3><span class="help" id="ktSummary"></span>
+          <button class="btn small ghost" id="ktClear">${icon('refresh')}<span>지우기</span></button></div>
+        <div class="kt-log" id="ktLog"></div>
+      </section>`;
+    $('#ktClear').addEventListener('click', () => {
+      kt.log = []; kt.count.clear();
+      renderKeyTestPad(); renderKeyTestLog();
+    });
+    if (!bridge.inApp) {
+      // 미리보기용: 마우스로 칸을 누르면 키 테스트 흉내
+      const inject = async (id, down) => {
+        const r = await bridge.call('keyTestInject', { slot: id, down });
+        if (r.ok && r.result && r.result.event) onKeyTestEvent(r.result.event);
+      };
+      let pressed = null;
+      $('#ktPad').addEventListener('mousedown', (ev) => {
+        const c = ev.target.closest('[data-slot]');
+        if (c) { pressed = c.dataset.slot; inject(pressed, true); }
+      });
+      window.addEventListener('mouseup', () => { if (pressed) { inject(pressed, false); pressed = null; } });
+    }
+  }
+  renderKeyTestPad();
+  renderKeyTestLog();
+}
+
+function renderKeyTestPad() {
+  const layer = ui.layer;
+  const cell = (s, title) => {
+    const info = capInfo(s);
+    const n = kt.count.get(s.id) || 0;
+    const cls = ['kt-cell', info.cls, kt.down.has(s.id) ? 'down' : '', n ? 'seen' : ''].join(' ');
+    return `<div class="${cls}" data-slot="${s.id}">
+      <span class="kt-num">${esc(title)}</span>
+      <span class="kt-label">${esc(s.type === 'empty' ? '—' : info.text)}</span>
+      <span class="kt-count">${n ? n + '회' : ''}</span></div>`;
+  };
+  const buttons = S.slots.filter((s) => s.layer === layer && s.control === 'button');
+  let html = `<div class="kt-keys" style="grid-template-columns:repeat(${S.layout.columns}, 1fr)">${buttons.map((s) => cell(s, String(s.index + 1))).join('')}</div>`;
+  for (let k = 0; k < S.layout.knobCount; k++) {
+    const parts = ['ccw', 'press', 'cw'].map((a) => S.slots.find((s) => s.layer === layer && s.control === 'knob' && s.index === k && s.knobAction === a)).filter(Boolean);
+    html += `<div class="kt-knob"><div class="kt-knob-name">${esc(parts[0] ? parts[0].name : '노브')}</div>
+      <div class="kt-knob-row">${parts.map((s) => cell(s, s.position.replace('으로 돌리기', ''))).join('')}</div></div>`;
+  }
+  $('#ktPad').innerHTML = html;
+}
+
+function renderKeyTestLog() {
+  const tested = [...kt.count.keys()].filter((id) => id.startsWith(`L${ui.layer}-`)).length;
+  const total = S.slots.filter((s) => s.layer === ui.layer).length;
+  $('#ktSummary').textContent = `레이어 ${ui.layer + 1}: ${tested} / ${total}칸 확인`;
+
+  if (!kt.log.length) {
+    $('#ktLog').innerHTML = '<div class="kt-empty">아직 기록이 없습니다. 패드 버튼을 눌러 보십시오.</div>';
+    return;
+  }
+  $('#ktLog').innerHTML = kt.log.map((e) => {
+    const where = e.names.length ? e.names.join(', ') : '어느 칸에도 없는 키';
+    const gap = e.sinceMs == null ? '' : `+${e.sinceMs}ms`;
+    const held = !e.down && e.heldMs != null ? `<span class="kt-held">${e.heldMs}ms 누름</span>` : '';
+    return `<div class="kt-row ${e.down ? 'is-down' : 'is-up'}">
+      <div class="kt-time"><span>${esc(e.at)}</span><span class="kt-gap">${gap}</span></div>
+      <span class="kt-badge">${e.down ? '누름' : '뗌'}</span>
+      <div class="kt-main">
+        <div><b>${esc(where)}</b> <span class="kt-what">${esc(e.label)}</span> <span class="kbd">${esc(e.key)}</span> ${held}</div>
+        ${e.result ? `<div class="kt-result">→ ${esc(e.result)}</div>` : ''}
+        ${e.hint ? `<div class="kt-hint">${icon('alert')}<span>${esc(e.hint)}</span></div>` : ''}
+      </div></div>`;
+  }).join('');
 }
 
 function wire() {
@@ -1072,8 +1196,8 @@ function wire() {
   });
 
   $('#layerHelp').addEventListener('click', () => showModal('레이어',
-    `<p>패드에는 설정을 3벌(레이어) 저장할 수 있어요. 다만 이 모델에서 레이어를 바꾸는 방법은 아직 확인하지 못했어요.</p>
-     <p style="margin-top:8px">보통은 <b>레이어 1</b>만 쓰면 돼요. 레이어 2·3에 넣은 값도 패드에 저장은 돼요.</p>`,
+    `<p>패드에는 설정을 3벌(레이어) 저장할 수 있습니다. 다만 이 모델에서 레이어를 바꾸는 방법은 아직 확인하지 못했습니다.</p>
+     <p style="margin-top:8px">보통은 <b>레이어 1</b>만 쓰면 됩니다. 레이어 2·3에 넣은 값도 패드에 저장은 됩니다.</p>`,
     [{ label: '확인', primary: true }]));
 
   $('#stage').addEventListener('click', (e) => {
@@ -1100,6 +1224,14 @@ function wire() {
   // 다른 창에서 돌아오면 최신 상태 (패드 연결, 직접 고친 설정 파일)
   window.addEventListener('focus', () => bridge.call('getState'));
   bridge.onPush((state) => setState(state));
+  bridge.onKeyTest(onKeyTestEvent);
+  $('#testLayerTabs').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-layer]');
+    if (!b) return;
+    ui.layer = Number(b.dataset.layer);
+    renderLayerTabs();
+    renderKeyTest();
+  });
   if (!bridge.inApp) setInterval(() => document.hasFocus() && bridge.call('getState'), 4000);
 }
 

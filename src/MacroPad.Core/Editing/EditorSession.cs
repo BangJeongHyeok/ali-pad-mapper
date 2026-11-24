@@ -34,6 +34,7 @@ public sealed class EditorSession
     private DateTime _lastWriteUtc;
     private bool _connected;
     private bool _uploading;
+    private KeyTester? _keyTester;
 
     public string ConfigPath { get; }
 
@@ -41,6 +42,9 @@ public sealed class EditorSession
 
     /// <summary>패드에 쓰는 중인지 (이때 창을 닫으면 안 됨)</summary>
     public bool IsBusy => _uploading;
+
+    /// <summary>화면이 '키 테스트' 중인지 (이때 PadAgent 는 PC 동작을 실행하지 않고 여기로 키를 넘김)</summary>
+    public bool KeyTestActive => _keyTester is not null;
 
     /// <exception cref="FormatException">설정 파일을 읽을 수 없을 때</exception>
     public EditorSession(string configPath, IEditorPlatform platform, string? statePath = null)
@@ -63,7 +67,38 @@ public sealed class EditorSession
         _lastWriteUtc = exists ? File.GetLastWriteTimeUtc(ConfigPath) : default;
         _statePath = _statePathOverride ?? PadState.DefaultPath(config.Device);
         _padState = PadState.Load(_statePath);
+        if (_keyTester is not null) _keyTester = new KeyTester(_editor); // 바뀐 설정으로 다시 맞춤
     }
+
+    /// <summary>
+    /// 키 테스트 중에 패드(키보드 훅)에서 온 키. 화면에 보낼 메시지 { type: "keyTest", event } 또는 null.
+    /// </summary>
+    public string? HandleKeyTest(ushort vk, ModifierFlags mods, bool down, DateTimeOffset at)
+    {
+        if (_keyTester?.Handle(vk, mods, down, at) is not { } e) return null;
+        return new JsonObject { ["type"] = "keyTest", ["event"] = KeyTestJson(e) }.ToJsonString(JsonOptions);
+    }
+
+    private static JsonObject KeyTestJson(KeyTestEvent e) => new()
+    {
+        ["at"] = e.At.ToLocalTime().ToString("HH:mm:ss.fff"),
+        ["down"] = e.Down,
+        ["key"] = e.Key,
+        ["slots"] = new JsonArray(e.Slots.Select(s => (JsonNode)SlotId(s)).ToArray()),
+        ["names"] = new JsonArray(e.Slots.Select(s => (JsonNode)$"레이어 {s.Layer + 1} {SlotTitle(s)}{(s.IsButton ? "" : " " + KnobActionName(s.KnobAction))}").ToArray()),
+        ["label"] = e.Label,
+        ["sinceMs"] = e.SincePreviousMs is { } since ? Math.Round(since) : null,
+        ["heldMs"] = e.HeldMs is { } held ? Math.Round(held) : null,
+        ["result"] = e.Result,
+        ["hint"] = e.Hint,
+    };
+
+    private static string KnobActionName(KnobAction a) => a switch
+    {
+        KnobAction.Ccw => "왼쪽",
+        KnobAction.Press => "누르기",
+        _ => "오른쪽",
+    };
 
     // ─────────────────────────── 주기적 확인 (창이 활성화될 때, 타이머) ───────────────────────────
 
@@ -126,9 +161,9 @@ public sealed class EditorSession
         var reply = new JsonObject();
         try
         {
-            var msg = JsonNode.Parse(json)?.AsObject() ?? throw new FormatException("빈 메시지예요.");
+            var msg = JsonNode.Parse(json)?.AsObject() ?? throw new FormatException("빈 메시지입니다.");
             id = msg["id"]?.DeepClone();
-            var type = msg["type"]?.GetValue<string>() ?? throw new FormatException("메시지 종류가 없어요.");
+            var type = msg["type"]?.GetValue<string>() ?? throw new FormatException("메시지 종류가 없습니다.");
             var result = await HandleCoreAsync(type, msg);
             reply["ok"] = true;
             if (result is not null) reply["result"] = result;
@@ -153,8 +188,8 @@ public sealed class EditorSession
 
             case "setSlot":
             {
-                var slot = ParseSlotId(Str(msg, "slot") ?? throw new FormatException("칸이 지정되지 않았어요."));
-                var value = msg["value"]?.AsObject() ?? throw new FormatException("값이 없어요.");
+                var slot = ParseSlotId(Str(msg, "slot") ?? throw new FormatException("칸이 지정되지 않았습니다."));
+                var value = msg["value"]?.AsObject() ?? throw new FormatException("값이 없습니다.");
                 EnsureNotUploading();
                 ApplyValue(slot, value);
                 return SaveIfDirty();
@@ -163,15 +198,15 @@ public sealed class EditorSession
             case "copySlot":
             {
                 // 같은 동작을 다른 칸(다른 레이어 포함)에 복사
-                var from = ParseSlotId(Str(msg, "from") ?? throw new FormatException("원본 칸이 없어요."));
-                var to = ParseSlotId(Str(msg, "to") ?? throw new FormatException("대상 칸이 없어요."));
+                var from = ParseSlotId(Str(msg, "from") ?? throw new FormatException("원본 칸이 없습니다."));
+                var to = ParseSlotId(Str(msg, "to") ?? throw new FormatException("대상 칸이 없습니다."));
                 EnsureNotUploading();
                 switch (_editor.Get(from))
                 {
                     case EmptySlot: _editor.Clear(to); break;
                     case PadKeysSlot p: _editor.SetPadKeys(to, p.Text); break;
                     case PcActionSlot pc: _editor.SetPcAction(to, pc.Action.Clone()); break;
-                    case InvalidSlot: throw new FormatException("잘못된 값은 복사할 수 없어요.");
+                    case InvalidSlot: throw new FormatException("잘못된 값은 복사할 수 없습니다.");
                 }
                 return SaveIfDirty();
             }
@@ -179,6 +214,23 @@ public sealed class EditorSession
             case "reload":
                 Load();
                 return null;
+
+            case "keyTest":
+                _keyTester = Bool(msg, "enabled") ? new KeyTester(_editor) : null;
+                return null;
+
+            case "keyTestInject":
+            {
+                // 미리보기(tools/UiPreview)용: 패드 없이 화면에서 칸을 눌러 키 테스트를 흉내 냄
+                var slot = ParseSlotId(Str(msg, "slot") ?? throw new FormatException("칸이 지정되지 않았습니다."));
+                var text = _editor.Config.GetText(slot);
+                if (_keyTester is null || string.IsNullOrWhiteSpace(text) || text.Contains(','))
+                    return null;
+                var chord = Chord.Parse(text);
+                if (chord.Key is not { Vk: { } vk }) return null;
+                var e = _keyTester.Handle(vk, chord.ModifierFlags, Bool(msg, "down"), DateTimeOffset.Now);
+                return e is null ? null : new JsonObject { ["event"] = KeyTestJson(e) };
+            }
 
             case "previewUpload":
             {
@@ -203,7 +255,7 @@ public sealed class EditorSession
                 CreatePlan(onlyChanged); // 검증
                 RefreshDevice();
                 if (!_connected)
-                    throw new InvalidOperationException("패드가 연결돼 있지 않아요. USB를 확인해 주세요.");
+                    throw new InvalidOperationException("패드가 연결돼 있지 않습니다. USB를 확인해 주십시오.");
 
                 EnsureNotUploading();
                 _uploading = true;
@@ -237,7 +289,7 @@ public sealed class EditorSession
 
             case "openLog":
                 if (_platform.LogPath is not { } log2 || !File.Exists(log2))
-                    throw new FileNotFoundException("아직 로그가 없어요.");
+                    throw new FileNotFoundException("아직 로그가 없습니다.");
                 _platform.OpenPath(log2);
                 return null;
 
@@ -247,30 +299,30 @@ public sealed class EditorSession
 
             case "testAction":
             {
-                var slot = ParseSlotId(Str(msg, "slot") ?? throw new FormatException("칸이 지정되지 않았어요."));
+                var slot = ParseSlotId(Str(msg, "slot") ?? throw new FormatException("칸이 지정되지 않았습니다."));
                 if (_editor.Get(slot) is PcActionSlot { Action.Seek: { } seek })
                     return new JsonObject { ["message"] = await _platform.SeekMediaAsync(seek) };
                 if (_editor.Get(slot) is not PcActionSlot { Action.Run: { Length: > 0 } } pc)
-                    throw new FormatException("미리 실행은 프로그램/웹사이트 열기와 재생 위치 이동만 할 수 있어요.");
+                    throw new FormatException("미리 실행은 프로그램/웹사이트 열기와 재생 위치 이동만 할 수 있습니다.");
                 _platform.RunAction(new ActionConfig { Run = pc.Action.Run, Args = pc.Action.Args, WorkingDir = pc.Action.WorkingDir });
                 return null;
             }
 
             default:
-                throw new FormatException($"알 수 없는 요청이에요: {type}");
+                throw new FormatException($"알 수 없는 요청입니다: {type}");
         }
     }
 
     private void EnsureNotUploading()
     {
-        if (_uploading) throw new InvalidOperationException("패드에 쓰는 중이에요. 잠시 후 다시 해 주세요.");
+        if (_uploading) throw new InvalidOperationException("패드에 쓰는 중입니다. 잠시 후 다시 해 주십시오.");
     }
 
     private UploadPlan CreatePlan(bool onlyChanged)
     {
         var plan = UploadPlan.Create(_editor.Config);
         if (!plan.IsValid)
-            throw new FormatException("설정에 문제가 있어요:\n" + string.Join("\n", plan.Errors));
+            throw new FormatException("설정에 문제가 있습니다:\n" + string.Join("\n", plan.Errors));
         return onlyChanged ? plan.OnlyChanged(_padState) : plan;
     }
 
@@ -278,7 +330,7 @@ public sealed class EditorSession
 
     private void ApplyValue(SlotRef slot, JsonObject value)
     {
-        var type = Str(value, "type") ?? throw new FormatException("값 종류가 없어요.");
+        var type = Str(value, "type") ?? throw new FormatException("값 종류가 없습니다.");
         switch (type)
         {
             case "empty":
@@ -291,7 +343,7 @@ public sealed class EditorSession
 
             case "pc":
             {
-                var mode = Str(value, "mode") ?? throw new FormatException("PC 동작 종류가 없어요.");
+                var mode = Str(value, "mode") ?? throw new FormatException("PC 동작 종류가 없습니다.");
                 // 같은 종류를 고치는 거면 화면에 없는 값(workingDir, delayMs 등)은 유지
                 var action = _editor.Get(slot) is PcActionSlot pc && PcMode(pc.Action) == mode
                     ? pc.Action.Clone()
@@ -304,27 +356,27 @@ public sealed class EditorSession
                         action.Run = Str(value, "run")?.Trim();
                         action.Args = mode == "app" ? NullIfBlank(Str(value, "args")) : null;
                         if (string.IsNullOrWhiteSpace(action.Run))
-                            throw new FormatException(mode == "web" ? "웹사이트 주소를 입력해 주세요." : "열 프로그램이나 파일을 골라 주세요.");
+                            throw new FormatException(mode == "web" ? "웹사이트 주소를 입력해 주십시오." : "열 프로그램이나 파일을 골라 주십시오.");
                         if (mode == "web" && !action.Run.Contains("://", StringComparison.Ordinal))
                             action.Run = "https://" + action.Run;
                         break;
                     case "text":
                         action.Text = Str(value, "text")?.ReplaceLineEndings("\n");
                         if (string.IsNullOrEmpty(action.Text))
-                            throw new FormatException("입력할 문장을 적어 주세요.");
+                            throw new FormatException("입력할 문장을 적어 주십시오.");
                         break;
                     case "pckeys":
                         var keys = value["keys"]?.AsArray().Select(k => k?.GetValue<string>()?.Trim())
                             .Where(k => !string.IsNullOrEmpty(k)).Select(k => k!).ToList() ?? new();
                         if (keys.Count == 0)
-                            throw new FormatException("보낼 키를 입력해 주세요.");
+                            throw new FormatException("보낼 키를 입력해 주십시오.");
                         action.Keys = keys;
                         break;
                     case "seek":
                     {
                         var seconds = Num(value, "seconds");
                         if (seconds is not { } s || !double.IsFinite(s) || s <= 0 || s > ActionConfig.MaxSeekSeconds)
-                            throw new FormatException($"이동할 시간은 0초보다 크고 {ActionConfig.MaxSeekSeconds:0}초 이하로 입력해 주세요.");
+                            throw new FormatException($"이동할 시간은 0초보다 크고 {ActionConfig.MaxSeekSeconds:0}초 이하로 입력해 주십시오.");
                         s = Math.Round(s, 3);
                         action.Seek = Str(value, "direction") == "back" ? -s : s;
                         // 기본값(켬)이면 파일에 안 씀
@@ -335,7 +387,7 @@ public sealed class EditorSession
                     {
                         var n = Num(value, "cue");
                         if (n is not { } c || c != Math.Floor(c) || c < 1 || c > ActionConfig.MaxCue)
-                            throw new FormatException($"큐 번호는 1~{ActionConfig.MaxCue} 사이 정수로 입력해 주세요.");
+                            throw new FormatException($"큐 번호는 1~{ActionConfig.MaxCue} 사이 정수로 입력해 주십시오.");
                         action.Cue = (int)c;
                         break;
                     }
@@ -343,7 +395,7 @@ public sealed class EditorSession
                         action.CueSet = true;
                         break;
                     default:
-                        throw new FormatException($"알 수 없는 PC 동작 종류예요: {mode}");
+                        throw new FormatException($"알 수 없는 PC 동작 종류입니다: {mode}");
                 }
 
                 _editor.SetPcAction(slot, action);
@@ -351,7 +403,7 @@ public sealed class EditorSession
             }
 
             default:
-                throw new FormatException($"알 수 없는 값 종류예요: {type}");
+                throw new FormatException($"알 수 없는 값 종류입니다: {type}");
         }
     }
 
@@ -579,7 +631,7 @@ public sealed class EditorSession
         catch (Exception ex) when (ex is FormatException or OverflowException)
         {
         }
-        throw new FormatException($"잘못된 칸 이름이에요: {id}");
+        throw new FormatException($"잘못된 칸 이름입니다: {id}");
     }
 
     // ─────────────────────────── JSON 도우미 ───────────────────────────

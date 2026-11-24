@@ -70,7 +70,7 @@ static PadConfig LoadConfig(string? path)
 {
     var resolved = ConfigLocator.Resolve(path);
     if (!File.Exists(resolved))
-        throw new FileNotFoundException($"설정 파일이 없어: {resolved}");
+        throw new FileNotFoundException($"설정 파일이 없습니다: {resolved}");
     Console.WriteLine($"설정 파일: {resolved}");
     return PadConfig.Load(resolved);
 }
@@ -84,7 +84,7 @@ static int List(bool all)
     var devices = all ? HidDevices.Enumerate() : HidDevices.Enumerate(vid, pid);
     if (devices.Count == 0)
     {
-        Console.WriteLine(all ? "HID 장치가 하나도 없어." : $"VID {vid:X4} / PID {pid:X4} 장치를 못 찾았어. USB 연결을 확인해줘. (전체 목록: list --all)");
+        Console.WriteLine(all ? "HID 장치가 하나도 없습니다." : $"VID {vid:X4} / PID {pid:X4} 장치를 찾지 못했습니다. USB 연결을 확인해 주십시오. (전체 목록: list --all)");
         return 1;
     }
 
@@ -100,7 +100,7 @@ static int List(bool all)
         var target = HidDevices.FindConfigInterface(vid, pid);
         Console.WriteLine();
         Console.WriteLine(target is null
-            ? "설정 통로(제조사 정의 컬렉션)를 못 찾았어."
+            ? "설정 통로(제조사 정의 컬렉션)를 찾지 못했습니다."
             : "★ 표시된 컬렉션으로 설정을 써.");
     }
     return 0;
@@ -111,7 +111,7 @@ static int Info(PadConfig config)
     var reply = PadProgrammer.Query(config, Console.WriteLine);
     if (reply is null)
     {
-        Console.WriteLine("응답이 없어. (응답이 없어도 쓰기는 될 수 있음. advanced.reportIdMode 를 바꿔서 다시 해볼 수도 있어)");
+        Console.WriteLine("응답이 없습니다. (응답이 없어도 쓰기는 될 수 있습니다. advanced.reportIdMode 를 바꿔서 다시 해 볼 수도 있습니다)");
         return 1;
     }
 
@@ -130,7 +130,7 @@ static int Upload(PadConfig config, bool dryRun, bool yes, bool onlyChanged)
 
     if (!plan.IsValid)
     {
-        Error("설정 파일에 문제가 있어:");
+        Error("설정 파일에 문제가 있습니다:");
         foreach (var e in plan.Errors) Error(" - " + e);
         return 1;
     }
@@ -146,24 +146,24 @@ static int Upload(PadConfig config, bool dryRun, bool yes, bool onlyChanged)
 
     if (plan.Bindings.Count == 0)
     {
-        Console.WriteLine("쓸 게 없어.");
+        Console.WriteLine("쓸 칸이 없습니다.");
         return 0;
     }
 
     if (!dryRun && !yes)
     {
-        Console.Write("패드에 쓸까? (y/N) ");
+        Console.Write("패드에 쓸까요? (y/N) ");
         var answer = Console.ReadLine()?.Trim().ToLowerInvariant();
         if (answer is not ("y" or "yes" or "ㅛ"))
         {
-            Console.WriteLine("취소했어.");
+            Console.WriteLine("취소했습니다.");
             return 1;
         }
     }
 
     PadProgrammer.Upload(config, Console.WriteLine, dryRun, onlyChanged);
     if (!dryRun)
-        Console.WriteLine("패드를 한 번 뽑았다 다시 꽂을 필요는 보통 없어. 바로 눌러/돌려서 확인해봐.");
+        Console.WriteLine("패드를 뽑았다 다시 꽂을 필요는 보통 없습니다. 바로 눌러 보거나 돌려서 확인해 주십시오.");
     return 0;
 }
 
@@ -184,7 +184,7 @@ static void PrintKeys()
 static byte[] ParseHex(string text)
 {
     var parts = text.Split([' ', ',', '-'], StringSplitOptions.RemoveEmptyEntries);
-    if (parts.Length == 0) throw new FormatException("보낼 바이트를 16진수로 적어줘. 예: raw 03 FB FB FB");
+    if (parts.Length == 0) throw new FormatException("보낼 바이트를 16진수로 적어 주십시오. 예: raw 03 FB FB FB");
     return parts.Select(p => byte.Parse(p.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? p[2..] : p,
         NumberStyles.HexNumber, CultureInfo.InvariantCulture)).ToArray();
 }
@@ -211,6 +211,6 @@ static void PrintHelp()
           PadFlasher keys                           쓸 수 있는 키 이름 목록
           PadFlasher raw 03 FB FB FB                패킷 하나 직접 전송 (실험용)
 
-        설정 파일을 생략하면 macropad.json 을 씀 (README 참고).
+        설정 파일을 생략하면 macropad.json 을 씁니다 (README 참고).
         """);
 }

@@ -59,7 +59,7 @@ internal sealed class MediaSeeker
     {
         var manager = await GetManagerAsync();
         var session = PickSession(manager)
-            ?? throw new InvalidOperationException("지금 재생 중인 미디어를 찾지 못했어요. 유튜브 등을 먼저 재생해 주세요.");
+            ?? throw new InvalidOperationException("지금 재생 중인 미디어를 찾지 못했습니다. 유튜브 등을 먼저 재생해 주십시오.");
 
         var info = session.GetPlaybackInfo();
         var tl = session.GetTimelineProperties();
@@ -81,13 +81,13 @@ internal sealed class MediaSeeker
         catch (Exception ex)
         {
             _tracker.Forget();
-            throw new InvalidOperationException($"{app}의 재생 위치를 옮기지 못했어요: {ex.Message}", ex);
+            throw new InvalidOperationException($"{app}의 재생 위치를 옮기지 못했습니다: {ex.Message}", ex);
         }
 
         if (!ok)
         {
             _tracker.Forget();
-            throw new InvalidOperationException($"{app}이(가) 재생 위치 이동을 받아 주지 않았어요. 이 앱은 지원하지 않는 것 같아요.");
+            throw new InvalidOperationException($"{app}이(가) 재생 위치 이동을 받아 주지 않았습니다. 이 앱은 지원하지 않는 것 같습니다.");
         }
     }
 
@@ -114,7 +114,7 @@ internal sealed class MediaSeeker
         catch (Exception ex)
         {
             _manager = null; // 다음에 다시 시도
-            throw new InvalidOperationException("Windows 미디어 제어에 연결하지 못했어요: " + ex.Message, ex);
+            throw new InvalidOperationException("Windows 미디어 제어에 연결하지 못했습니다: " + ex.Message, ex);
         }
     }
 

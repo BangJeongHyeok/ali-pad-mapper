@@ -9,3 +9,6 @@ TestResults/
 # 편집기 저장 시 생기는 백업/임시 파일
 *.bak
 *.tmp
+
+# 개인 설정 (버튼 배치, 프로그램 경로, 문구). 레포에는 예시 macropad.example.json 만 둠
+/macropad.json

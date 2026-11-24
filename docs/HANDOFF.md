@@ -105,7 +105,7 @@
 ```
 MacroPad.sln
 Directory.Build.props        공통 설정 (MacroPadDotNet = net10.0)
-macropad.json                메인 설정 (JSONC)
+macropad.example.json        설정 예시 (JSONC). 실제 설정 macropad.json 은 개인 데이터라 .gitignore, 없으면 예시를 복사해 만듦
 configs/
   00-factory-default.json    공장 초기값 복원
   01-top-knob-test.json      첫 테스트용 (위 노브만)
@@ -127,6 +127,7 @@ src/MacroPad.Core/           OS 무관 로직 + Windows HID
   Editing/EditorSession.cs   화면 ↔ C# 메시지 처리 + 화면 상태(JSON). 자동 저장. OS 기능은 IEditorPlatform 으로
   Editing/IEditorPlatform.cs
   Media/SeekTracker.cs       재생 위치 이동: 노브 가속(빨리 돌리면 최대 6배), 목표 위치 계산(연속 회전 시 직전 목표 기준), 곡 끝 1초 전까지
+  Editing/KeyTester.cs       편집기 '키 테스트': 키 → 칸 찾기, 누른 시간, 샘플 큐 판단 흉내(별도 CueBank), "큐 지정 키가 먼저 떼짐" 힌트
   Media/CueBank.cs           샘플 큐: 큐 지정 키(펑션) 누름 상태 + 큐별 저장 위치. 누른 채로=저장, 그냥=이동(비었으면 저장), 짧게 톡=다음 한 번 저장
   Config/ConfigWriter.cs     macropad.json 저장 (버튼 4개씩 한 줄, .bak 백업, 임시 파일 후 교체)
   Keys/KeyNames.cs           키/미디어 표시 이름
@@ -141,7 +142,7 @@ src/PadAgent/                WinForms 트레이 앱 + 편집기
   TriggerMap.cs              actions → (VK, 수식 키 플래그) 표
   ActionRunner.cs            run(ShellExecute) / keys(SendInput) / text(유니코드 입력) / seek(재생 위치 이동)
   Media/MediaSeeker.cs       Windows 미디어 제어(GlobalSystemMediaTransportControls)로 재생 중인 앱의 위치 이동
-  Native/KeyboardHook.cs     WH_KEYBOARD_LL, 트리거만 삼킴
+  Native/KeyboardHook.cs     WH_KEYBOARD_LL, 트리거만 삼킴. 전용 스레드(자체 메시지 루프)에서 돌고, 키 입력에 찍힌 시각을 넘김
   Native/InputSender.cs      SendInput, dwExtraInfo 서명 'MPAD'로 자기 입력 무시
   Native/StartupRegistration.cs
   AgentLog.cs                %LOCALAPPDATA%\MacroPad\agent.log
@@ -210,9 +211,15 @@ macropad.json ─ layers ─▶ UploadPlan(.OnlyChanged) ─▶ K8850Protocol �
 - [x] 편집기가 열려 있는 동안 파일이 밖에서 바뀌면 자동 반영 (창 활성화 시)
 - [x] 패드 USB 연결/분리 감지 (편집기 화면에 표시. 트레이 아이콘 표시는 아직)
 - [ ] 칸 복사/붙여넣기 (EditorSession 에 copySlot 은 있음, 화면 연결 안 함)
-- [ ] Core 오류 메시지 말투 통일 (화면은 해요체, Core 오류는 아직 반말)
+- [x] 말투 통일: 사용자에게 보이는 문장은 전부 합니다체 (트레이 알림, 대화상자, 오류 메시지, 편집기 화면, 기본 편집기, PadFlasher)
 - [x] 노브로 재생 위치 이동 (턴테이블처럼, 가속) — `seek` 동작. **유튜브/유튜브 뮤직 실물 확인 전**
 - [ ] 재생 위치 이동이 안 되는 앱용 대체 수단 (앱별 단축키 보내기 등)
+- [x] 키 테스트 (편집기 왼쪽 메뉴). 테스트 중에는 PC 동작 실행 안 함 (TrayApp → WebEditorForm.OnPadKey)
+- [x] 키보드 훅을 UI 스레드에서 전용 스레드로 분리
+  - 이유: 저수준 훅은 콜백이 Windows 제한 시간(기본 약 300ms) 안에 안 끝나면 그 키를 우리를 거치지 않고 넘기고,
+    반복되면 훅이 말없이 제거됨. UI 스레드는 미디어 제어(GSMTC) 동기 호출·WebView2·알림 등으로 막힐 수 있어서
+    PC가 바쁠 때 큐 지정 키의 누름/뗌을 놓칠 수 있었음 → 뗌을 놓치면 최대 20초 동안 큐 키가 전부 '저장'으로 처리됨
+  - 같은 키의 누름이 2초 넘게 끊겼다가 다시 오면 그 사이 뗌을 놓친 것으로 보고 뗀 것으로 처리 (TrayApp.MissedKeyUpGap)
 - [x] 샘플 큐 (`cue` / `cueSet`) — 펑션 키를 누른 채로 큐 키 = 지금 위치 저장, 큐 키만 = 그 위치로 이동. **실물 확인 전**
   - 패드가 단독 키(F13~F24) 바인딩을 누르고 있는 동안 계속 눌린 상태로 보내는지 미확인.
     바로 떼서 보내는 경우를 대비해 "짧게 톡 → 3초 안의 다음 큐 키 한 번 저장"도 넣어 둠 (CueBank.TapMax/ArmTimeout)
@@ -224,7 +231,7 @@ macropad.json ─ layers ─▶ UploadPlan(.OnlyChanged) ─▶ K8850Protocol �
 ## 8. 공유 / 배포 시 개인정보 체크
 
 - 편집기 백업/임시 파일(`*.bak`, `*.tmp`)은 `.gitignore`로 제외
-- `macropad.json` 은 레포에 포함된 파일이라, 편집기로 개인 경로/문구를 넣으면 커밋 전에 확인
+- `macropad.json` 은 `.gitignore` 로 제외 (레포에는 `macropad.example.json` 만). 예시를 고칠 때 개인 경로/문구를 넣지 않기
 
 - 소스·설정 파일에는 개인정보 없음
 - 단, **사용자 PC에서 빌드한 결과물**에는 로컬 경로(예: `C:\Users\<사용자>\…`)가 들어감

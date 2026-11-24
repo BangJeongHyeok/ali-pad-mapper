@@ -23,7 +23,7 @@ public static class ConfigWriter
     public static bool IsEditorFormat(string text) => text.TrimStart('\uFEFF', ' ', '\r', '\n').StartsWith(HeaderFirstLine, StringComparison.Ordinal);
 
     private const string Header = """
-        // MacroPad 설정 파일 — MacroPad 편집기가 저장함 (직접 고쳐도 됨, 주석 // 사용 가능)
+        // MacroPad 설정 파일 — MacroPad 편집기가 저장함 (직접 고쳐도 됩니다, 주석 // 사용 가능)
         //
         //   layers  : 패드 자체에 저장되는 설정 → "패드에 쓰기"를 해야 반영됨
         //             값: "volumeup" / "play" / "a" / "ctrl+c" / "ctrl+a, ctrl+c" / null(건드리지 않음)
@@ -32,7 +32,7 @@ public static class ConfigWriter
         //             { "seek": 재생 위치 이동(초, 음수=뒤로), "seekAccel": 빨리 돌리면 더 크게(기본 true) }
         //             { "cue": 샘플 큐 번호(누르면 저장한 위치로 이동) }  { "cueSet": true (누른 채로 큐 키 = 지금 위치 저장) }
         //
-        // 편집기로 저장하면 주석이 사라져. 이전 파일은 macropad.json.bak 에 백업됨.
+        // 편집기로 저장하면 주석이 사라집니다. 이전 파일은 macropad.json.bak 에 백업됩니다.
         """;
 
     public static string Serialize(PadConfig config)

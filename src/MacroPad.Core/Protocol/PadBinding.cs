@@ -20,7 +20,7 @@ public abstract record PadBinding
         if (chords.Any(c => c.Key?.IsMedia == true))
         {
             if (chords.Count != 1 || chords[0].Modifiers.Count != 0)
-                throw new FormatException($"'{text}': 미디어 키(볼륨/재생 등)는 다른 키와 같이 못 써. 단독으로 써줘.");
+                throw new FormatException($"'{text}': 미디어 키(볼륨/재생 등)는 다른 키와 같이 쓸 수 없습니다. 단독으로 써 주십시오.");
 
             var media = chords[0].Key!;
             if (media.Consumer > 0xFF)
@@ -32,7 +32,7 @@ public abstract record PadBinding
         foreach (var c in chords)
         {
             if (c.Key is { Hid: null })
-                throw new FormatException($"'{text}': '{c.Key.Name}' 키는 패드에 저장할 수 없어.");
+                throw new FormatException($"'{text}': '{c.Key.Name}' 키는 패드에 저장할 수 없습니다.");
         }
 
         return new KeySequenceBinding(chords);

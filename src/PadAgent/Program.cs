@@ -32,7 +32,7 @@ internal static class Program
                 }
                 catch (WaitHandleCannotBeOpenedException)
                 {
-                    MessageBox.Show("MacroPad Agent가 이미 실행 중이야.\n(작업 표시줄 오른쪽 숨겨진 아이콘 확인)",
+                    MessageBox.Show("MacroPad가 이미 실행 중입니다.\n(작업 표시줄 오른쪽 숨겨진 아이콘을 확인해 주십시오)",
                         "MacroPad", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }

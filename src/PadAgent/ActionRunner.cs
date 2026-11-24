@@ -138,7 +138,7 @@ internal sealed class ActionRunner
                 AgentLog.Write($"[{trigger.Name}] 큐 {cue} 저장: {SeekTracker.Format(point.Position)}");
                 // 알림은 큐 지정 키로 저장할 때만. 큐 키만 누른 건 '실행'이라 비어 있어 저장돼도 조용히
                 if (mode == CuePress.Set)
-                    _onInfo($"큐 {cue}에 저장했어.");
+                    _onInfo($"큐 {cue}에 저장했습니다.");
             }
             else if (_cues.TryGet(cue, out var point))
             {

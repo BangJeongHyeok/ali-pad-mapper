@@ -77,10 +77,10 @@ public static class SlotDisplay
     /// <summary>칸 상태 설명 (편집기 아래쪽 안내용)</summary>
     public static string Kind(SlotAssignment assignment) => assignment switch
     {
-        EmptySlot => "비어 있음: 패드에 쓸 때 이 칸은 건드리지 않아 (패드에 원래 있던 값 유지).",
-        PadKeysSlot { IsMedia: true } => "미디어 키: 패드에 저장돼서 PC 프로그램 없이도 동작해.",
-        PadKeysSlot => "키 입력: 패드에 저장돼서 PC 프로그램 없이도 동작해.",
-        PcActionSlot pc => $"PC 동작: 패드는 '{pc.Trigger}' 키를 보내고, PadAgent 가 실행 중일 때 동작해.",
+        EmptySlot => "비어 있음: 패드에 쓸 때 이 칸은 건드리지 않습니다 (패드에 원래 있던 값 유지).",
+        PadKeysSlot { IsMedia: true } => "미디어 키: 패드에 저장돼서 PC 프로그램 없이도 동작합니다.",
+        PadKeysSlot => "키 입력: 패드에 저장돼서 PC 프로그램 없이도 동작합니다.",
+        PcActionSlot pc => $"PC 동작: 패드는 '{pc.Trigger}' 키를 보내고, PadAgent 가 실행 중일 때 동작합니다.",
         InvalidSlot bad => "설정 파일 값이 잘못됨: " + bad.Error,
         _ => "",
     };

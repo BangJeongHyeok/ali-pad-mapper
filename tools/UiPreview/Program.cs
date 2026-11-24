@@ -23,7 +23,11 @@ var work = Path.Combine(Path.GetTempPath(), "macropad-ui-preview");
 Directory.CreateDirectory(work);
 var configPath = Path.Combine(work, "macropad.json");
 if (!File.Exists(configPath))
-    File.Copy(Path.Combine(root, "macropad.json"), configPath);
+{
+    // 내 설정이 있으면 그걸, 없으면 예시를 복사 (원본은 건드리지 않음)
+    var mine = Path.Combine(root, "macropad.json");
+    File.Copy(File.Exists(mine) ? mine : Path.Combine(root, "macropad.example.json"), configPath);
+}
 
 var platform = new PreviewPlatform { Connected = connected };
 var session = new EditorSession(configPath, platform, Path.Combine(work, "pad-state.json"));
@@ -112,7 +116,7 @@ static string FindRepoRoot()
     var dir = new DirectoryInfo(AppContext.BaseDirectory);
     while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "MacroPad.sln")))
         dir = dir.Parent;
-    return dir?.FullName ?? throw new InvalidOperationException("MacroPad.sln 이 있는 폴더를 못 찾았어요.");
+    return dir?.FullName ?? throw new InvalidOperationException("MacroPad.sln 이 있는 폴더를 찾지 못했습니다.");
 }
 
 internal sealed class PreviewPlatform : IEditorPlatform
