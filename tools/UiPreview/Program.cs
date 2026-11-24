@@ -116,7 +116,7 @@ static string FindRepoRoot()
     var dir = new DirectoryInfo(AppContext.BaseDirectory);
     while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "MacroPad.sln")))
         dir = dir.Parent;
-    return dir?.FullName ?? throw new InvalidOperationException("MacroPad.sln 이 있는 폴더를 못 찾았어요.");
+    return dir?.FullName ?? throw new InvalidOperationException("MacroPad.sln 이 있는 폴더를 찾지 못했습니다.");
 }
 
 internal sealed class PreviewPlatform : IEditorPlatform

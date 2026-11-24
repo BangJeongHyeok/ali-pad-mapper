@@ -102,7 +102,7 @@ public sealed class KeyTester
             };
 
             if (mode != CuePress.Set && _lastSetUpAt is { } up && at - up >= TimeSpan.Zero && at - up <= ReleaseBeforeCueHint)
-                hint = $"큐 지정 키가 이 키보다 {(at - up).TotalMilliseconds:0}ms 먼저 떼졌어요. 패드가 두 키를 같이 보내지 못하는 것 같아요.";
+                hint = $"큐 지정 키가 이 키보다 {(at - up).TotalMilliseconds:0}ms 먼저 떼졌습니다. 패드가 두 키를 같이 보내지 못하는 것 같습니다.";
         }
 
         return Record(at, true, entry, held: null, cueResult, hint);

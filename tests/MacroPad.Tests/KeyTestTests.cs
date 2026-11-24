@@ -79,7 +79,7 @@ public sealed class KeyTestTests
         t.Handle(F20, 0, false, T0.AddSeconds(1.6));
         var e = t.Handle(F13, 0, true, T0.AddSeconds(1.64))!;
         Assert.Equal("이동", e.Result);
-        Assert.Contains("40ms 먼저 떼졌어요", e.Hint);
+        Assert.Contains("40ms 먼저 떼졌습니다", e.Hint);
     }
 
     [Fact]
