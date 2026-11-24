@@ -111,13 +111,13 @@ public sealed class ConfigEditor
     public void SetPadKeys(SlotRef slot, string text)
     {
         if (string.IsNullOrWhiteSpace(text))
-            throw new FormatException("입력할 키가 없어.");
+            throw new FormatException("입력할 키가 없습니다.");
 
         var binding = PadBinding.Parse(text)!;
         _ = K8850Protocol.BindingPacket(slot.Layer, slot.PadSlot(Options), binding, Options);
 
         if (FindAction(text) is not null)
-            throw new FormatException($"'{text.Trim()}' 은 PC 동작의 트리거 키로 이미 쓰이고 있어. 다른 키를 고르거나 'PC 동작'으로 지정해줘.");
+            throw new FormatException($"'{text.Trim()}' 은(는) PC 동작의 트리거 키로 이미 쓰이고 있습니다. 다른 키를 고르거나 'PC 동작'으로 지정해 주십시오.");
 
         Replace(slot, text.Trim());
     }
@@ -192,8 +192,8 @@ public sealed class ConfigEditor
                 return candidate;
 
         throw new FormatException(plainOnly
-            ? "큐 지정 키에 쓸 F13~F24 가 다 쓰였어요. 다른 PC 동작 하나를 지우고 다시 해 주세요."
-            : "자동으로 배정할 트리거 키가 다 떨어졌어. (최대 48개)");
+            ? "큐 지정 키에 쓸 F13~F24 가 다 쓰였습니다. 다른 PC 동작 하나를 지우고 다시 해 주십시오."
+            : "자동으로 배정할 트리거 키가 다 떨어졌습니다. (최대 48개)");
     }
 
     /// <summary>수식 키 없는 키 하나인지 ("f13" 은 true, "shift+f13" 은 false)</summary>

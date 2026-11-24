@@ -47,7 +47,7 @@ public sealed class PadConfig
         }
 
         if (config is null)
-            throw new FormatException("설정 파일이 비어 있어.");
+            throw new FormatException("설정 파일이 비어 있습니다.");
 
         // 대소문자 구분 없이 찾을 수 있게 다시 담기 (JSON 역직렬화는 기본 비교자를 씀)
         config.Actions = new Dictionary<string, ActionConfig>(config.Actions ?? new(), StringComparer.OrdinalIgnoreCase);
@@ -71,7 +71,7 @@ public sealed class DeviceSection
         var s = text.Trim();
         if (s.StartsWith("0x", StringComparison.OrdinalIgnoreCase)) s = s[2..];
         if (!ushort.TryParse(s, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var v))
-            throw new FormatException($"device.{name} 값 '{text}' 을 16진수로 읽을 수 없어. (예: \"0x514C\")");
+            throw new FormatException($"device.{name} 값 '{text}' 을 16진수로 읽을 수 없습니다. (예: \"0x514C\")");
         return v;
     }
 }
@@ -197,22 +197,22 @@ public sealed class ActionConfig
             foreach (var c in Chord.ParseSequence(step))
             {
                 if (c.Key is { Vk: null })
-                    throw new FormatException($"'{c.Key.Name}' 키는 PC에서 보낼 수 없어.");
+                    throw new FormatException($"'{c.Key.Name}' 키는 PC에서 보낼 수 없습니다.");
                 chords.Add(c);
             }
         }
 
         if (Seek is { } seek && (!double.IsFinite(seek) || seek == 0 || Math.Abs(seek) > MaxSeekSeconds))
-            throw new FormatException($"seek 는 0이 아닌 -{MaxSeekSeconds}~{MaxSeekSeconds} 사이 초여야 해. (지금: {seek})");
+            throw new FormatException($"seek 는 0이 아닌 -{MaxSeekSeconds}~{MaxSeekSeconds} 사이 초여야 합니다. (지금: {seek})");
 
         if (Cue is { } cue && (cue < 1 || cue > MaxCue))
-            throw new FormatException($"cue 는 1~{MaxCue} 사이 번호여야 해. (지금: {cue})");
+            throw new FormatException($"cue 는 1~{MaxCue} 사이 번호여야 합니다. (지금: {cue})");
 
         if (Cue is not null && IsCueSet)
-            throw new FormatException("cue 와 cueSet 은 한 키에 같이 쓸 수 없어.");
+            throw new FormatException("cue 와 cueSet 은 한 키에 같이 쓸 수 없습니다.");
 
         if (string.IsNullOrWhiteSpace(Run) && chords.Count == 0 && string.IsNullOrEmpty(Text) && Seek is null && Cue is null && !IsCueSet)
-            throw new FormatException("run / keys / text / seek / cue / cueSet 중 하나는 있어야 해.");
+            throw new FormatException("run / keys / text / seek / cue / cueSet 중 하나는 있어야 합니다.");
 
         return chords;
     }

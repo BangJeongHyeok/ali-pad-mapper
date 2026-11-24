@@ -170,7 +170,7 @@ public sealed class HidConnection : IDisposable
         {
             var err = Marshal.GetLastWin32Error();
             handle.Dispose();
-            throw new IOException($"패드의 설정 통로를 열 수 없어: {new Win32Exception(err).Message} (판매자 프로그램이 켜져 있으면 끄고 다시 해봐)");
+            throw new IOException($"패드의 설정 통로를 열 수 없습니다: {new Win32Exception(err).Message} (판매자 프로그램이 켜져 있으면 끄고 다시 해 주십시오)");
         }
         return new HidConnection(info, handle);
     }
@@ -201,7 +201,7 @@ public sealed class HidConnection : IDisposable
     {
         int length = Info.OutputReportLength;
         if (length <= 1)
-            throw new InvalidOperationException("이 HID 컬렉션은 출력 리포트가 없어.");
+            throw new InvalidOperationException("이 HID 컬렉션은 출력 리포트가 없습니다.");
 
         int reportId = reportIdMode.Trim().ToLowerInvariant() switch
         {

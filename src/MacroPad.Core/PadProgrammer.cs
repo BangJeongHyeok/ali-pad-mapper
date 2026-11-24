@@ -15,7 +15,7 @@ public static class PadProgrammer
         var pid = config.Device.ProductIdValue;
         return HidDevices.FindConfigInterface(vid, pid)
                ?? throw new InvalidOperationException(
-                   $"패드(VID {vid:X4} / PID {pid:X4})의 설정 통로를 못 찾았어. USB가 꽂혀 있는지 확인해줘.");
+                   $"패드(VID {vid:X4} / PID {pid:X4})의 설정 통로를 찾지 못했습니다. USB가 꽂혀 있는지 확인해 주십시오.");
     }
 
     /// <summary>
@@ -27,7 +27,7 @@ public static class PadProgrammer
     {
         var plan = UploadPlan.Create(config);
         if (!plan.IsValid)
-            throw new FormatException("설정 파일에 문제가 있어:\n - " + string.Join("\n - ", plan.Errors));
+            throw new FormatException("설정 파일에 문제가 있습니다:\n - " + string.Join("\n - ", plan.Errors));
 
         statePath ??= PadState.DefaultPath(config.Device);
         var state = PadState.Load(statePath);
@@ -35,7 +35,7 @@ public static class PadProgrammer
         if (onlyChanged)
         {
             if (state is null)
-                log("이 PC에서 패드에 쓴 기록이 없어서 전부 써.");
+                log("이 PC에서 패드에 쓴 기록이 없어서 전부 씁니다.");
             plan = plan.OnlyChanged(state);
             if (plan.SkippedUnchanged > 0)
                 log($"패드와 같은 {plan.SkippedUnchanged}개 칸은 건너뜀.");
@@ -43,13 +43,13 @@ public static class PadProgrammer
 
         if (plan.Bindings.Count == 0)
         {
-            log(onlyChanged ? "바뀐 칸이 없어. 패드에 쓸 게 없음." : "쓸 내용이 없어. (모든 칸이 비어 있음)");
+            log(onlyChanged ? "바뀐 칸이 없습니다. 패드에 쓸 것이 없습니다." : "쓸 내용이 없습니다. (모든 칸이 비어 있음)");
             return 0;
         }
 
         if (dryRun)
         {
-            log("[미리보기] 실제로 보내지 않고 패킷만 출력해.");
+            log("[미리보기] 실제로 보내지 않고 패킷만 출력합니다.");
             foreach (var (desc, packet) in plan.Packets())
                 log($"{desc}\n    {K8850Protocol.ToHex(packet)}");
             return plan.Bindings.Count;
@@ -91,7 +91,7 @@ public static class PadProgrammer
             }
         }
 
-        log($"완료: {written}개 슬롯을 썼어.");
+        log($"완료: {written}개 칸을 썼습니다.");
         return written;
     }
 

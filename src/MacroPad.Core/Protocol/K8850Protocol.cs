@@ -65,9 +65,9 @@ public static class K8850Protocol
     public static byte[] BindingPacket(int layerIndex, int slot, PadBinding binding, ProtocolOptions options)
     {
         if (layerIndex is < 0 or > 15)
-            throw new ArgumentOutOfRangeException(nameof(layerIndex), "레이어 번호가 범위를 벗어났어.");
+            throw new ArgumentOutOfRangeException(nameof(layerIndex), "레이어 번호가 범위를 벗어났습니다.");
         if (slot is < 1 or > 0xFD)
-            throw new ArgumentOutOfRangeException(nameof(slot), "슬롯 번호가 범위를 벗어났어.");
+            throw new ArgumentOutOfRangeException(nameof(slot), "슬롯 번호가 범위를 벗어났습니다.");
 
         var msg = new List<byte>(PacketSize) { 0x03, 0xFD, (byte)slot, (byte)(layerIndex + 1) };
 
@@ -105,13 +105,13 @@ public static class K8850Protocol
             foreach (var m in chord.Modifiers)
                 entries.Add(KeyTable.PadCode(m));
             if (chord.Key is { } key)
-                entries.Add(key.Hid ?? throw new FormatException($"'{key.Name}' 키는 패드에 저장할 수 없어."));
+                entries.Add(key.Hid ?? throw new FormatException($"'{key.Name}' 키는 패드에 저장할 수 없습니다."));
         }
 
         if (entries.Count == 0)
-            throw new FormatException("입력할 키가 없어.");
+            throw new FormatException("입력할 키가 없습니다.");
         if (entries.Count > MaxMacroEntries)
-            throw new FormatException($"연속 입력이 너무 길어. 수식 키 포함 최대 {MaxMacroEntries}개인데 {entries.Count}개야.");
+            throw new FormatException($"연속 입력이 너무 깁니다. 수식 키 포함 최대 {MaxMacroEntries}개인데 {entries.Count}개입니다.");
 
         msg.AddRange([(byte)entries.Count, 0x00, 0x00]);
         foreach (var e in entries)
@@ -121,7 +121,7 @@ public static class K8850Protocol
     private static byte[] Pad(params byte[] bytes)
     {
         if (bytes.Length > PacketSize)
-            throw new InvalidOperationException("패킷이 64바이트를 넘었어.");
+            throw new InvalidOperationException("패킷이 64바이트를 넘었습니다.");
         var packet = new byte[PacketSize];
         bytes.CopyTo(packet, 0);
         return packet;

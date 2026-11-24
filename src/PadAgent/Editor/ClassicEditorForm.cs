@@ -100,7 +100,7 @@ internal sealed class ClassicEditorForm : Form
     private void ReloadFromFile()
     {
         if (_editor.IsDirty &&
-            MessageBox.Show(this, "저장하지 않은 변경을 버리고 파일에서 다시 읽을까?", Text,
+            MessageBox.Show(this, "저장하지 않은 변경을 버리고 파일에서 다시 읽을까요?", Text,
                 MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK)
             return;
 
@@ -110,7 +110,7 @@ internal sealed class ClassicEditorForm : Form
         }
         catch (Exception ex) when (ex is FormatException or IOException or UnauthorizedAccessException)
         {
-            MessageBox.Show(this, "설정 파일을 못 읽었어 (편집 중인 내용 유지):\n" + ex.Message, Text,
+            MessageBox.Show(this, "설정 파일을 읽지 못했습니다 (편집 중인 내용 유지):\n" + ex.Message, Text,
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
@@ -118,7 +118,7 @@ internal sealed class ClassicEditorForm : Form
         SelectSlot(_selected);
         UpdateTitle();
         UpdateStatus();
-        SetStatus("파일에서 다시 읽었어.");
+        SetStatus("파일에서 다시 읽었습니다.");
     }
 
     private bool Save()
@@ -126,8 +126,8 @@ internal sealed class ClassicEditorForm : Form
         if (!_fileIsEditorFormat)
         {
             var answer = MessageBox.Show(this,
-                "편집기로 저장하면 설정 파일의 주석(// …)과 줄 배치가 편집기 형식으로 바뀌어.\n" +
-                $"원래 파일은 {Path.GetFileName(_configPath)}.bak 으로 백업해 둘게. 저장할까?",
+                "편집기로 저장하면 설정 파일의 주석(// …)과 줄 배치가 편집기 형식으로 바뀝니다.\n" +
+                $"원래 파일은 {Path.GetFileName(_configPath)}.bak 으로 백업해 둡니다. 저장할까요?",
                 Text, MessageBoxButtons.OKCancel, MessageBoxIcon.Information);
             if (answer != DialogResult.OK) return false;
         }
@@ -146,7 +146,7 @@ internal sealed class ClassicEditorForm : Form
         _fileIsEditorFormat = true;
         AgentLog.Write("편집기: 설정 저장");
         UpdateTitle();
-        SetStatus("저장했어. (PC 동작은 바로 반영, 패드 칸은 [패드에 쓰기] 필요)");
+        SetStatus("저장했습니다. (PC 동작은 바로 반영, 패드 칸은 [패드에 쓰기] 필요)");
         return true;
     }
 
@@ -165,7 +165,7 @@ internal sealed class ClassicEditorForm : Form
         var plan = UploadPlan.Create(config);
         if (!plan.IsValid)
         {
-            MessageBox.Show(this, "설정에 문제가 있어서 쓸 수 없어:\n\n" + string.Join("\n", plan.Errors), Text,
+            MessageBox.Show(this, "설정에 문제가 있어서 쓸 수 없습니다:\n\n" + string.Join("\n", plan.Errors), Text,
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
@@ -173,7 +173,7 @@ internal sealed class ClassicEditorForm : Form
         if (onlyChanged) plan = plan.OnlyChanged(_padState);
         if (plan.Bindings.Count == 0)
         {
-            MessageBox.Show(this, onlyChanged ? "패드에 새로 쓸 칸이 없어. (패드와 설정이 같아)" : "쓸 칸이 없어. (모든 칸이 비어 있음)",
+            MessageBox.Show(this, onlyChanged ? "패드에 새로 쓸 칸이 없습니다. (패드와 설정이 같습니다)" : "쓸 칸이 없습니다. (모든 칸이 비어 있음)",
                 Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
@@ -183,7 +183,7 @@ internal sealed class ClassicEditorForm : Form
         if (plan.Bindings.Count > maxLines) summary += $"\n… 외 {plan.Bindings.Count - maxLines}개";
         var skipped = plan.SkippedUnchanged > 0 ? $"\n(패드와 같은 {plan.SkippedUnchanged}개 칸은 건너뜀)" : "";
 
-        if (MessageBox.Show(this, $"아래 {plan.Bindings.Count}개 칸을 패드에 쓸까?{skipped}\n\n{summary}", "패드에 쓰기",
+        if (MessageBox.Show(this, $"아래 {plan.Bindings.Count}개 칸을 패드에 쓸까요?{skipped}\n\n{summary}", "패드에 쓰기",
                 MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
             return;
 
@@ -195,7 +195,7 @@ internal sealed class ClassicEditorForm : Form
         {
             var count = await Task.Run(() => PadProgrammer.Upload(config, line => log.AppendLine(line), onlyChanged: onlyChanged));
             AgentLog.Write("편집기: 패드에 쓰기 완료\n" + log);
-            result = $"패드에 {count}개 칸을 썼어. 바로 눌러/돌려서 확인해봐.";
+            result = $"패드에 {count}개 칸을 썼습니다. 바로 눌러 보거나 돌려서 확인해 주십시오.";
         }
         catch (Exception ex)
         {
@@ -268,7 +268,7 @@ internal sealed class ClassicEditorForm : Form
                 case InvalidSlot bad:
                     _kindKeys.Checked = true;
                     _keysBox.Text = bad.Text;
-                    _errorLabel.Text = "설정 파일 값이 잘못됐어: " + bad.Error;
+                    _errorLabel.Text = "설정 파일 값이 잘못됐습니다: " + bad.Error;
                     break;
                 default:
                     _kindEmpty.Checked = true;
@@ -325,7 +325,7 @@ internal sealed class ClassicEditorForm : Form
         string upload;
         if (_editor.NeedsUpload(_selected, _padState))
         {
-            upload = "이 칸은 아직 패드에 안 썼어. [패드에 쓰기]를 눌러야 패드에 반영돼.";
+            upload = "이 칸은 아직 패드에 쓰지 않았습니다. [패드에 쓰기]를 눌러야 패드에 반영됩니다.";
         }
         else if (assignment is EmptySlot
                  && _padState?.Get(_selected.Layer, _selected.PadSlot(_editor.Options)) is { } record)
@@ -344,7 +344,7 @@ internal sealed class ClassicEditorForm : Form
         string text;
         if (_padState is null)
         {
-            text = "이 PC에서 패드에 쓴 기록이 없어 — 처음 한 번은 [전체 쓰기]를 권장해.";
+            text = "이 PC에서 패드에 쓴 기록이 없습니다 — 처음 한 번은 [전체 쓰기]를 권장합니다.";
         }
         else
         {
@@ -510,7 +510,7 @@ internal sealed class ClassicEditorForm : Form
 
         if (_editor.IsDirty)
         {
-            var answer = MessageBox.Show(this, "저장하지 않은 변경이 있어. 저장할까?", Text,
+            var answer = MessageBox.Show(this, "저장하지 않은 변경이 있습니다. 저장할까요?", Text,
                 MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
             if (answer == DialogResult.Cancel || (answer == DialogResult.Yes && !Save()))
             {
@@ -582,7 +582,7 @@ internal sealed class ClassicEditorForm : Form
 
         bar.Controls.Add(new Label
         {
-            Text = "레이어 2·3 전환 방법은 아직 확인 전이라, 보통은 레이어 1만 쓰면 돼.",
+            Text = "레이어 2·3 전환 방법은 아직 확인 전이라, 보통은 레이어 1만 쓰면 됩니다.",
             AutoSize = true,
             ForeColor = SystemColors.GrayText,
             Margin = new Padding(12, 7, 0, 0),
@@ -738,7 +738,7 @@ internal sealed class ClassicEditorForm : Form
         _mediaCombo.SelectedIndexChanged += (_, _) => ApplyFromUi();
         p.Controls.Add(_mediaCombo);
 
-        p.Controls.Add(Hint("미디어 키는 다른 키와 섞을 수 없어. 노브 왼쪽/오른쪽에 볼륨 -/+ 를 넣는 게 일반적이야."));
+        p.Controls.Add(Hint("미디어 키는 다른 키와 섞을 수 없습니다. 노브 왼쪽/오른쪽에 볼륨 -/+ 를 넣는 것이 일반적입니다."));
         return p;
     }
 
@@ -795,8 +795,8 @@ internal sealed class ClassicEditorForm : Form
         _textBox.TextChanged += (_, _) => ApplyFromUi();
         p.Controls.Add(_textBox);
 
-        p.Controls.Add(Hint("적힌 것을 실행 → 단축키 → 문자열 순서로 처리해. 환경 변수(%USERPROFILE% 등) 사용 가능.\n" +
-                            "트리거 키(F13~F24 등)는 자동으로 배정돼."));
+        p.Controls.Add(Hint("적힌 것을 실행 → 단축키 → 문자열 순서로 처리합니다. 환경 변수(%USERPROFILE% 등) 사용 가능.\n" +
+                            "트리거 키(F13~F24 등)는 자동으로 배정됩니다."));
         return p;
     }
 

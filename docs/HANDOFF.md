@@ -211,7 +211,7 @@ macropad.json ─ layers ─▶ UploadPlan(.OnlyChanged) ─▶ K8850Protocol �
 - [x] 편집기가 열려 있는 동안 파일이 밖에서 바뀌면 자동 반영 (창 활성화 시)
 - [x] 패드 USB 연결/분리 감지 (편집기 화면에 표시. 트레이 아이콘 표시는 아직)
 - [ ] 칸 복사/붙여넣기 (EditorSession 에 copySlot 은 있음, 화면 연결 안 함)
-- [ ] Core 오류 메시지 말투 통일 (화면은 해요체, Core 오류는 아직 반말)
+- [x] 말투 통일: 트레이 알림·대화상자·오류 메시지·기본 편집기·PadFlasher 는 합니다체. 편집기 화면(ui/, EditorSession 메시지)은 해요체
 - [x] 노브로 재생 위치 이동 (턴테이블처럼, 가속) — `seek` 동작. **유튜브/유튜브 뮤직 실물 확인 전**
 - [ ] 재생 위치 이동이 안 되는 앱용 대체 수단 (앱별 단축키 보내기 등)
 - [x] 키 테스트 (편집기 왼쪽 메뉴). 테스트 중에는 PC 동작 실행 안 함 (TrayApp → WebEditorForm.OnPadKey)

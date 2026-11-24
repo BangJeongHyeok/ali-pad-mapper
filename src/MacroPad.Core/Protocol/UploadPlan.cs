@@ -31,7 +31,7 @@ public sealed class UploadPlan
         var errors = new List<string>();
 
         if (config.Layers.Count > adv.LayerCount)
-            errors.Add($"레이어는 최대 {adv.LayerCount}개인데 {config.Layers.Count}개가 있어.");
+            errors.Add($"레이어는 최대 {adv.LayerCount}개인데 {config.Layers.Count}개가 있습니다.");
 
         for (int layer = 0; layer < Math.Min(config.Layers.Count, adv.LayerCount); layer++)
         {
@@ -40,11 +40,11 @@ public sealed class UploadPlan
 
             var buttonCount = lc.Buttons?.Count ?? 0;
             if (buttonCount > adv.ButtonCount)
-                errors.Add($"레이어{layer + 1}: 버튼은 {adv.ButtonCount}개인데 {buttonCount}개가 적혀 있어.");
+                errors.Add($"레이어{layer + 1}: 버튼은 {adv.ButtonCount}개인데 {buttonCount}개가 적혀 있습니다.");
 
             var knobCount = lc.Knobs?.Count ?? 0;
             if (knobCount > adv.KnobCount)
-                errors.Add($"레이어{layer + 1}: 노브는 {adv.KnobCount}개인데 {knobCount}개가 적혀 있어.");
+                errors.Add($"레이어{layer + 1}: 노브는 {adv.KnobCount}개인데 {knobCount}개가 적혀 있습니다.");
 
             foreach (var slot in SlotRef.AllInLayer(layer, adv))
             {

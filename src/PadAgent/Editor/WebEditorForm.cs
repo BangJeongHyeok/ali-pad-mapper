@@ -88,7 +88,7 @@ internal sealed class WebEditorForm : Form
         catch (Exception ex)
         {
             AgentLog.Write("편집기 화면 초기화 실패: " + ex);
-            MessageBox.Show(this, "편집기 화면을 띄우지 못했어요:\n" + ex.Message + "\n\n트레이 메뉴의 '기본 편집기 열기'를 써 주세요.",
+            MessageBox.Show(this, "편집기 화면을 띄우지 못했습니다:\n" + ex.Message + "\n\n트레이 메뉴의 '기본 편집기 열기'를 써 주십시오.",
                 "MacroPad", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             Close();
             return;
@@ -196,7 +196,7 @@ internal sealed class WebEditorForm : Form
         if (_session.IsBusy)
         {
             e.Cancel = true;
-            MessageBox.Show(this, "패드에 쓰는 중이에요. 끝나면 닫아 주세요.", "MacroPad", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, "패드에 쓰는 중입니다. 끝나면 닫아 주십시오.", "MacroPad", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
         base.OnFormClosing(e);

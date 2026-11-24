@@ -103,7 +103,7 @@ internal sealed class TrayApp : ApplicationContext
         }
         catch (Win32Exception ex)
         {
-            ShowError("키보드 훅을 설치하지 못했어: " + ex.Message);
+            ShowError("키보드 훅을 설치하지 못했습니다: " + ex.Message);
         }
 
         // 예전 버전이 등록한 자동 실행 항목에 --tray 붙이기 (로그인할 때 편집기 창이 뜨지 않게)
@@ -161,8 +161,8 @@ internal sealed class TrayApp : ApplicationContext
         catch (Exception ex) when (ex is FormatException or IOException or UnauthorizedAccessException)
         {
             AgentLog.Write("편집기 열기 실패: " + ex);
-            MessageBox.Show("설정 파일을 읽을 수 없어서 편집기를 열지 못했어요:\n" + ex.Message +
-                            "\n\n[설정 파일 열기 (JSON)]로 직접 고쳐 주세요.", "MacroPad", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show("설정 파일을 읽을 수 없어서 편집기를 열지 못했습니다:\n" + ex.Message +
+                            "\n\n[설정 파일 열기 (JSON)]로 직접 고쳐 주십시오.", "MacroPad", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
 
@@ -231,7 +231,7 @@ internal sealed class TrayApp : ApplicationContext
     {
         var count = _runner.CueCount;
         _runner.ClearCues();
-        ShowInfo(count > 0 ? $"샘플 큐 {count}개를 지웠어." : "저장한 샘플 큐가 없어.");
+        ShowInfo(count > 0 ? $"샘플 큐 {count}개를 지웠습니다." : "저장한 샘플 큐가 없습니다.");
     }
 
     // ─────────────────────────── 설정 ───────────────────────────
@@ -241,7 +241,7 @@ internal sealed class TrayApp : ApplicationContext
         try
         {
             if (!File.Exists(_configPath))
-                throw new FileNotFoundException($"설정 파일이 없어: {_configPath}");
+                throw new FileNotFoundException($"설정 파일이 없습니다: {_configPath}");
 
             var config = PadConfig.Load(_configPath);
             var triggers = TriggerMap.Build(config);
@@ -261,7 +261,7 @@ internal sealed class TrayApp : ApplicationContext
             }
             else if (showResult)
             {
-                ShowInfo($"설정을 다시 불러왔어. (PC 동작 {triggers.Count}개)");
+                ShowInfo($"설정을 다시 불러왔습니다. (PC 동작 {triggers.Count}개)");
             }
         }
         catch (IOException) when (_reloadRetries++ < 3)
@@ -273,7 +273,7 @@ internal sealed class TrayApp : ApplicationContext
         {
             _reloadRetries = 0;
             AgentLog.Write("설정 불러오기 실패: " + ex.Message);
-            ShowError("설정을 못 불러왔어 (이전 설정 유지): " + ex.Message);
+            ShowError("설정을 불러오지 못했습니다 (이전 설정 유지): " + ex.Message);
         }
     }
 
@@ -307,7 +307,7 @@ internal sealed class TrayApp : ApplicationContext
         {
             if (!File.Exists(path))
             {
-                ShowError($"파일이 없어: {path}");
+                ShowError($"파일이 없습니다: {path}");
                 return;
             }
             Process.Start(new ProcessStartInfo(path) { UseShellExecute = true })?.Dispose();
@@ -324,7 +324,7 @@ internal sealed class TrayApp : ApplicationContext
     {
         if (_config is null)
         {
-            ShowError("설정을 먼저 제대로 불러와야 해.");
+            ShowError("설정을 먼저 제대로 불러와야 합니다.");
             return;
         }
 
@@ -332,7 +332,7 @@ internal sealed class TrayApp : ApplicationContext
         var plan = UploadPlan.Create(config);
         if (!plan.IsValid)
         {
-            MessageBox.Show("설정 파일에 문제가 있어:\n\n" + string.Join("\n", plan.Errors),
+            MessageBox.Show("설정 파일에 문제가 있습니다:\n\n" + string.Join("\n", plan.Errors),
                 "패드에 설정 쓰기", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
@@ -341,7 +341,7 @@ internal sealed class TrayApp : ApplicationContext
         if (plan.Bindings.Count > 40) summary += $"\n… 외 {plan.Bindings.Count - 40}개";
 
         var answer = MessageBox.Show(
-            $"아래 {plan.Bindings.Count}개 슬롯을 패드에 쓸까? (비워둔 칸은 그대로 둠)\n\n{summary}",
+            $"아래 {plan.Bindings.Count}개 칸을 패드에 쓸까요? (비워 둔 칸은 그대로 둡니다)\n\n{summary}",
             "패드에 설정 쓰기", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
         if (answer != DialogResult.Yes) return;
 
@@ -350,7 +350,7 @@ internal sealed class TrayApp : ApplicationContext
         {
             var count = await Task.Run(() => PadProgrammer.Upload(config, line => log.AppendLine(line)));
             AgentLog.Write("패드에 쓰기 완료\n" + log);
-            ShowInfo($"패드에 {count}개 슬롯을 썼어. 바로 눌러/돌려서 확인해봐.");
+            ShowInfo($"패드에 {count}개 칸을 썼습니다. 바로 눌러 보거나 돌려서 확인해 주십시오.");
         }
         catch (Exception ex)
         {
@@ -372,7 +372,7 @@ internal sealed class TrayApp : ApplicationContext
         try
         {
             StartupRegistration.SetEnabled(enabled);
-            ShowInfo(enabled ? "Windows 시작 시 자동으로 실행할게." : "자동 실행을 껐어.");
+            ShowInfo(enabled ? "Windows를 시작할 때 자동으로 실행합니다." : "자동 실행을 껐습니다.");
         }
         catch (Exception ex)
         {

@@ -41,8 +41,8 @@ internal sealed class KeyCaptureDialog : Form
         {
             AutoSize = true,
             MaximumSize = new Size(430, 0),
-            Text = "넣고 싶은 키 조합을 눌러줘. 여러 번 누르면 순서대로 기록돼 (연속 입력).\n" +
-                   "다 됐으면 [확인]을 마우스로 눌러. (Win 조합은 Windows가 먼저 가로챌 수 있어)",
+            Text = "넣고 싶은 키 조합을 눌러 주십시오. 여러 번 누르면 순서대로 기록됩니다 (연속 입력).\n" +
+                   "다 됐으면 [확인]을 마우스로 눌러 주십시오. (Win 조합은 Windows가 먼저 가로챌 수 있습니다)",
         });
 
         _display = new Label
@@ -132,7 +132,7 @@ internal sealed class KeyCaptureDialog : Form
     {
         if (_chords.Count == 0)
         {
-            _display.Text = "(키를 눌러줘)";
+            _display.Text = "(키를 눌러 주십시오)";
             _display.ForeColor = SystemColors.GrayText;
         }
         else

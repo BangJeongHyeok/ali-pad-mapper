@@ -23,7 +23,7 @@ public sealed record Chord(IReadOnlyList<ModifierKey> Modifiers, KeyInfo? Key)
     public static Chord Parse(string text)
     {
         if (string.IsNullOrWhiteSpace(text))
-            throw new FormatException("빈 키 조합이야.");
+            throw new FormatException("빈 키 조합입니다.");
 
         var modifiers = new List<ModifierKey>();
         KeyInfo? key = null;
@@ -32,7 +32,7 @@ public sealed record Chord(IReadOnlyList<ModifierKey> Modifiers, KeyInfo? Key)
         {
             var part = raw.Trim();
             if (part.Length == 0)
-                throw new FormatException($"'{text}': '+' 사이에 빈 칸이 있어. ('+' 키는 numpadplus 또는 shift+equal 로 써줘)");
+                throw new FormatException($"'{text}': '+' 사이에 빈 칸이 있습니다. ('+' 키는 numpadplus 또는 shift+equal 로 써 주십시오)");
 
             if (KeyTable.TryGetModifier(part, out var mod))
             {
@@ -41,10 +41,10 @@ public sealed record Chord(IReadOnlyList<ModifierKey> Modifiers, KeyInfo? Key)
             }
 
             if (!KeyTable.TryGetKey(part, out var k))
-                throw new FormatException($"'{text}': '{part}' 라는 키 이름을 모르겠어.");
+                throw new FormatException($"'{text}': '{part}' 라는 키 이름을 알 수 없습니다.");
 
             if (key is not null)
-                throw new FormatException($"'{text}': 수식 키가 아닌 키가 두 개 이상이야 ('{key.Name}', '{k.Name}'). 연속 입력은 쉼표로 구분해줘.");
+                throw new FormatException($"'{text}': 수식 키가 아닌 키가 두 개 이상입니다 ('{key.Name}', '{k.Name}'). 연속 입력은 쉼표로 구분해 주십시오.");
 
             key = k;
         }
@@ -62,7 +62,7 @@ public sealed record Chord(IReadOnlyList<ModifierKey> Modifiers, KeyInfo? Key)
             .ToList();
 
         if (chords.Count == 0)
-            throw new FormatException("빈 키 입력이야.");
+            throw new FormatException("빈 키 입력입니다.");
 
         return chords;
     }

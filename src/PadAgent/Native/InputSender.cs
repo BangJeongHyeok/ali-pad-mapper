@@ -79,7 +79,7 @@ internal static class InputSender
         {
             // 관리자 권한으로 실행 중인 창에는 일반 권한 앱이 입력을 못 보냄 (Windows 보안 정책)
             throw new Win32Exception(Marshal.GetLastWin32Error(),
-                "키 입력 전송 실패 (관리자 권한 창이 앞에 있으면 막힐 수 있어)");
+                "키 입력 전송 실패 (관리자 권한 창이 앞에 있으면 막힐 수 있습니다)");
         }
     }
 
