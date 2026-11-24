@@ -99,15 +99,19 @@
 
 ## 설치와 실행
 
-아직 미리 만든 설치 파일이 없으므로 소스에서 실행 파일을 만듭니다. PowerShell 에서:
+아직 미리 만든 설치 파일이 없으므로 소스에서 실행 파일을 만듭니다.
+[.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) 가 필요합니다 (Runtime 이 아니라 **SDK**. Visual Studio 2026 이 깔려 있으면 이미 있습니다).
 
 ```powershell
 git clone https://github.com/BangJeongHyeok/ali-pad-mapper.git
 cd ali-pad-mapper
-.\tools\publish.ps1
+.\publish.cmd
 ```
 
-`publish` 폴더에 실행 파일이 생깁니다.
+탐색기에서 `publish.cmd` 를 더블클릭해도 됩니다. `publish` 폴더에 실행 파일이 생깁니다.
+
+> `.\tools\publish.ps1` 을 바로 실행하면 "이 시스템에서 스크립트를 실행할 수 없으므로…" 오류가 날 수 있습니다
+> (Windows 기본 실행 정책). `publish.cmd` 는 이 정책과 상관없이 실행됩니다.
 
 | 파일 | 설명 |
 |---|---|
@@ -115,7 +119,7 @@ cd ali-pad-mapper
 | `PadFlasher.exe` | 명령줄 도구 (선택) |
 | `macropad.example.json` | 설정 예시. 처음 실행할 때 `macropad.json` 으로 복사됩니다 |
 
-- .NET 런타임이 없는 PC에서 쓰려면 `.\tools\publish.ps1 -SelfContained` (파일이 커지는 대신 설치 없이 실행)
+- .NET 런타임이 없는 PC에서 쓰려면 `.\publish.cmd -SelfContained` (파일이 커지는 대신 설치 없이 실행)
 - 빌드 없이 바로 띄워 보려면 `dotnet run --project src/PadAgent`
 - GitHub Actions 가 커밋마다 같은 방식으로 빌드한 결과(`MacroPad-win-x64`)를
   [Actions](https://github.com/BangJeongHyeok/ali-pad-mapper/actions/workflows/ci.yml) 실행 결과에 올려 둡니다 (GitHub 로그인 필요)
@@ -135,7 +139,7 @@ cd ali-pad-mapper
 
 ```powershell
 git pull
-.\tools\publish.ps1
+.\publish.cmd
 ```
 
 설정 파일, 자동 실행 등록, 패드에 쓴 기록은 그대로 유지됩니다.
@@ -231,7 +235,7 @@ macropad.json
 | 증상 | 해볼 것 |
 |---|---|
 | 장치 카드가 **연결 안 됨** | USB 다시 꽂기. 판매자 프로그램 등 패드를 잡고 있는 다른 프로그램 끄기. `PadFlasher list --all` 에 `514C` 가 보이는지 확인 |
-| 편집기에 새 기능이 안 보임 | 예전 MacroPad 가 트레이에 떠 있으면 새 exe 를 실행해도 예전 창이 열립니다. 트레이에서 종료 후 다시 publish/실행 |
+| 편집기에 새 기능이 안 보임 | 예전 MacroPad 가 트레이에 떠 있으면 새 exe 를 실행해도 예전 창이 열립니다. 트레이에서 종료 후 다시 `publish.cmd`/실행 |
 | **[패드에 적용]** 은 성공인데 노브가 글자를 찍음 | `macropad.json` 의 `advanced.reportIdMode` 를 `"zero"` → `"payload"` 로 바꿔서 **전체 다시 쓰기** |
 | 글자는 안 찍히는데 볼륨이 안 변함 | `advanced.mediaModeByte` 를 `1` 로 바꿔서 전체 다시 쓰기 |
 | 왼쪽/오른쪽이 반대 | 두 칸의 동작을 서로 바꾸기 |
