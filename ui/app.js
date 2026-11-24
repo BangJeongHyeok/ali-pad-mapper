@@ -171,6 +171,7 @@ const bridge = (() => {
   let seq = 0;
   const waiting = new Map();
   let onPush = () => {};
+  let onKeyTest = () => {};
 
   if (wv) {
     wv.addEventListener('message', (e) => {
@@ -180,6 +181,8 @@ const bridge = (() => {
         waiting.delete(msg.id);
       } else if (msg && msg.type === 'state') {
         onPush(msg.state);
+      } else if (msg && msg.type === 'keyTest') {
+        onKeyTest(msg.event);
       }
     });
   }
@@ -198,7 +201,7 @@ const bridge = (() => {
     return reply;
   }
 
-  return { call, inApp: !!wv, onPush: (fn) => { onPush = fn; } };
+  return { call, inApp: !!wv, onPush: (fn) => { onPush = fn; }, onKeyTest: (fn) => { onKeyTest = fn; } };
 })();
 
 // ─────────────────────────── 상태 ───────────────────────────
@@ -272,6 +275,7 @@ function renderAll() {
   renderPad();
   renderApplyBar();
   if (ui.page === 'settings') renderSettings();
+  if (ui.page === 'keytest') renderKeyTest();
   if (ui.selected) {
     renderPanelHead();
     updatePanelMarks();
@@ -1044,10 +1048,130 @@ function toast(message, kind = 'ok', ms = 3200) {
 // ─────────────────────────── 이벤트 ───────────────────────────
 
 function setPage(page) {
+  const was = ui.page;
   ui.page = page;
   $('#app').dataset.page = page;
   document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('active', b.dataset.nav === page));
   if (page === 'settings') renderSettings();
+  if (page !== was && (page === 'keytest' || was === 'keytest')) {
+    if (page === 'keytest') { closePanel(); kt.down.clear(); renderKeyTest(); }
+    bridge.call('keyTest', { enabled: page === 'keytest' });
+  }
+}
+
+// ─────────────────────────── 키 테스트 ───────────────────────────
+
+const kt = {
+  log: [],              // 최근 기록 (새 것이 앞)
+  down: new Map(),      // 누르고 있는 칸 id → 누른 횟수 (같은 키가 여러 칸에 있을 수 있어서)
+  count: new Map(),     // 칸 id → 누른 횟수
+};
+
+const KT_MAX = 200;
+
+function onKeyTestEvent(e) {
+  if (!e) return;
+  for (const id of e.slots) {
+    if (e.down) {
+      kt.down.set(id, (kt.down.get(id) || 0) + 1);
+      kt.count.set(id, (kt.count.get(id) || 0) + 1);
+    } else {
+      const n = (kt.down.get(id) || 1) - 1;
+      if (n > 0) kt.down.set(id, n); else kt.down.delete(id);
+    }
+  }
+  kt.log.unshift(e);
+  if (kt.log.length > KT_MAX) kt.log.length = KT_MAX;
+  if (ui.page === 'keytest') { renderKeyTestPad(); renderKeyTestLog(); }
+}
+
+function renderKeyTest() {
+  const tabs = $('#testLayerTabs');
+  tabs.innerHTML = Array.from({ length: S.layout.layerCount }, (_, i) =>
+    `<button data-layer="${i}" class="${i === ui.layer ? 'active' : ''}">레이어 ${i + 1}</button>`).join('');
+
+  const root = $('#keytest');
+  if (!root.dataset.built) {
+    root.dataset.built = '1';
+    root.innerHTML = `
+      <section class="kt-left">
+        <div class="kt-pad" id="ktPad"></div>
+        <div class="kt-notes">
+          <div class="note">${icon('info')}<span>테스트하는 동안에는 PC 동작(프로그램 열기, 샘플 큐 등)이 실행되지 않아요.
+            패드에 저장된 동작(볼륨, 단축키 등)은 패드가 직접 보내는 거라 그대로 동작해요.</span></div>
+          ${bridge.inApp ? '' : '<div class="help">미리보기: 칸을 마우스로 누르면 패드에서 누른 것처럼 기록돼요.</div>'}
+        </div>
+      </section>
+      <section class="kt-right card">
+        <div class="kt-log-head"><h3>기록</h3><span class="help" id="ktSummary"></span>
+          <button class="btn small ghost" id="ktClear">${icon('refresh')}<span>지우기</span></button></div>
+        <div class="kt-log" id="ktLog"></div>
+      </section>`;
+    $('#ktClear').addEventListener('click', () => {
+      kt.log = []; kt.count.clear();
+      renderKeyTestPad(); renderKeyTestLog();
+    });
+    if (!bridge.inApp) {
+      // 미리보기용: 마우스로 칸을 누르면 키 테스트 흉내
+      const inject = async (id, down) => {
+        const r = await bridge.call('keyTestInject', { slot: id, down });
+        if (r.ok && r.result && r.result.event) onKeyTestEvent(r.result.event);
+      };
+      let pressed = null;
+      $('#ktPad').addEventListener('mousedown', (ev) => {
+        const c = ev.target.closest('[data-slot]');
+        if (c) { pressed = c.dataset.slot; inject(pressed, true); }
+      });
+      window.addEventListener('mouseup', () => { if (pressed) { inject(pressed, false); pressed = null; } });
+    }
+  }
+  renderKeyTestPad();
+  renderKeyTestLog();
+}
+
+function renderKeyTestPad() {
+  const layer = ui.layer;
+  const cell = (s, title) => {
+    const info = capInfo(s);
+    const n = kt.count.get(s.id) || 0;
+    const cls = ['kt-cell', info.cls, kt.down.has(s.id) ? 'down' : '', n ? 'seen' : ''].join(' ');
+    return `<div class="${cls}" data-slot="${s.id}">
+      <span class="kt-num">${esc(title)}</span>
+      <span class="kt-label">${esc(s.type === 'empty' ? '—' : info.text)}</span>
+      <span class="kt-count">${n ? n + '회' : ''}</span></div>`;
+  };
+  const buttons = S.slots.filter((s) => s.layer === layer && s.control === 'button');
+  let html = `<div class="kt-keys" style="grid-template-columns:repeat(${S.layout.columns}, 1fr)">${buttons.map((s) => cell(s, String(s.index + 1))).join('')}</div>`;
+  for (let k = 0; k < S.layout.knobCount; k++) {
+    const parts = ['ccw', 'press', 'cw'].map((a) => S.slots.find((s) => s.layer === layer && s.control === 'knob' && s.index === k && s.knobAction === a)).filter(Boolean);
+    html += `<div class="kt-knob"><div class="kt-knob-name">${esc(parts[0] ? parts[0].name : '노브')}</div>
+      <div class="kt-knob-row">${parts.map((s) => cell(s, s.position.replace('으로 돌리기', ''))).join('')}</div></div>`;
+  }
+  $('#ktPad').innerHTML = html;
+}
+
+function renderKeyTestLog() {
+  const tested = [...kt.count.keys()].filter((id) => id.startsWith(`L${ui.layer}-`)).length;
+  const total = S.slots.filter((s) => s.layer === ui.layer).length;
+  $('#ktSummary').textContent = `레이어 ${ui.layer + 1}: ${tested} / ${total}칸 확인`;
+
+  if (!kt.log.length) {
+    $('#ktLog').innerHTML = '<div class="kt-empty">아직 기록이 없어요. 패드 버튼을 눌러 보세요.</div>';
+    return;
+  }
+  $('#ktLog').innerHTML = kt.log.map((e) => {
+    const where = e.names.length ? e.names.join(', ') : '어느 칸에도 없는 키';
+    const gap = e.sinceMs == null ? '' : `+${e.sinceMs}ms`;
+    const held = !e.down && e.heldMs != null ? `<span class="kt-held">${e.heldMs}ms 누름</span>` : '';
+    return `<div class="kt-row ${e.down ? 'is-down' : 'is-up'}">
+      <div class="kt-time"><span>${esc(e.at)}</span><span class="kt-gap">${gap}</span></div>
+      <span class="kt-badge">${e.down ? '누름' : '뗌'}</span>
+      <div class="kt-main">
+        <div><b>${esc(where)}</b> <span class="kt-what">${esc(e.label)}</span> <span class="kbd">${esc(e.key)}</span> ${held}</div>
+        ${e.result ? `<div class="kt-result">→ ${esc(e.result)}</div>` : ''}
+        ${e.hint ? `<div class="kt-hint">${icon('alert')}<span>${esc(e.hint)}</span></div>` : ''}
+      </div></div>`;
+  }).join('');
 }
 
 function wire() {
@@ -1100,6 +1224,14 @@ function wire() {
   // 다른 창에서 돌아오면 최신 상태 (패드 연결, 직접 고친 설정 파일)
   window.addEventListener('focus', () => bridge.call('getState'));
   bridge.onPush((state) => setState(state));
+  bridge.onKeyTest(onKeyTestEvent);
+  $('#testLayerTabs').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-layer]');
+    if (!b) return;
+    ui.layer = Number(b.dataset.layer);
+    renderLayerTabs();
+    renderKeyTest();
+  });
   if (!bridge.inApp) setInterval(() => document.hasFocus() && bridge.call('getState'), 4000);
 }
 

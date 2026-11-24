@@ -34,6 +34,7 @@ public sealed class EditorSession
     private DateTime _lastWriteUtc;
     private bool _connected;
     private bool _uploading;
+    private KeyTester? _keyTester;
 
     public string ConfigPath { get; }
 
@@ -41,6 +42,9 @@ public sealed class EditorSession
 
     /// <summary>패드에 쓰는 중인지 (이때 창을 닫으면 안 됨)</summary>
     public bool IsBusy => _uploading;
+
+    /// <summary>화면이 '키 테스트' 중인지 (이때 PadAgent 는 PC 동작을 실행하지 않고 여기로 키를 넘김)</summary>
+    public bool KeyTestActive => _keyTester is not null;
 
     /// <exception cref="FormatException">설정 파일을 읽을 수 없을 때</exception>
     public EditorSession(string configPath, IEditorPlatform platform, string? statePath = null)
@@ -63,7 +67,38 @@ public sealed class EditorSession
         _lastWriteUtc = exists ? File.GetLastWriteTimeUtc(ConfigPath) : default;
         _statePath = _statePathOverride ?? PadState.DefaultPath(config.Device);
         _padState = PadState.Load(_statePath);
+        if (_keyTester is not null) _keyTester = new KeyTester(_editor); // 바뀐 설정으로 다시 맞춤
     }
+
+    /// <summary>
+    /// 키 테스트 중에 패드(키보드 훅)에서 온 키. 화면에 보낼 메시지 { type: "keyTest", event } 또는 null.
+    /// </summary>
+    public string? HandleKeyTest(ushort vk, ModifierFlags mods, bool down, DateTimeOffset at)
+    {
+        if (_keyTester?.Handle(vk, mods, down, at) is not { } e) return null;
+        return new JsonObject { ["type"] = "keyTest", ["event"] = KeyTestJson(e) }.ToJsonString(JsonOptions);
+    }
+
+    private static JsonObject KeyTestJson(KeyTestEvent e) => new()
+    {
+        ["at"] = e.At.ToLocalTime().ToString("HH:mm:ss.fff"),
+        ["down"] = e.Down,
+        ["key"] = e.Key,
+        ["slots"] = new JsonArray(e.Slots.Select(s => (JsonNode)SlotId(s)).ToArray()),
+        ["names"] = new JsonArray(e.Slots.Select(s => (JsonNode)$"레이어 {s.Layer + 1} {SlotTitle(s)}{(s.IsButton ? "" : " " + KnobActionName(s.KnobAction))}").ToArray()),
+        ["label"] = e.Label,
+        ["sinceMs"] = e.SincePreviousMs is { } since ? Math.Round(since) : null,
+        ["heldMs"] = e.HeldMs is { } held ? Math.Round(held) : null,
+        ["result"] = e.Result,
+        ["hint"] = e.Hint,
+    };
+
+    private static string KnobActionName(KnobAction a) => a switch
+    {
+        KnobAction.Ccw => "왼쪽",
+        KnobAction.Press => "누르기",
+        _ => "오른쪽",
+    };
 
     // ─────────────────────────── 주기적 확인 (창이 활성화될 때, 타이머) ───────────────────────────
 
@@ -179,6 +214,23 @@ public sealed class EditorSession
             case "reload":
                 Load();
                 return null;
+
+            case "keyTest":
+                _keyTester = Bool(msg, "enabled") ? new KeyTester(_editor) : null;
+                return null;
+
+            case "keyTestInject":
+            {
+                // 미리보기(tools/UiPreview)용: 패드 없이 화면에서 칸을 눌러 키 테스트를 흉내 냄
+                var slot = ParseSlotId(Str(msg, "slot") ?? throw new FormatException("칸이 지정되지 않았어요."));
+                var text = _editor.Config.GetText(slot);
+                if (_keyTester is null || string.IsNullOrWhiteSpace(text) || text.Contains(','))
+                    return null;
+                var chord = Chord.Parse(text);
+                if (chord.Key is not { Vk: { } vk }) return null;
+                var e = _keyTester.Handle(vk, chord.ModifierFlags, Bool(msg, "down"), DateTimeOffset.Now);
+                return e is null ? null : new JsonObject { ["event"] = KeyTestJson(e) };
+            }
 
             case "previewUpload":
             {
