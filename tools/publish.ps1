@@ -1,5 +1,7 @@
 ﻿# 배포용 실행 파일 만들기
 #
+#   가장 쉬운 방법: 솔루션 폴더의 publish.cmd 더블클릭 (PowerShell 스크립트 실행 정책과 상관없이 실행됨)
+#
 #   PowerShell 에서 솔루션 폴더 기준으로:
 #     .\tools\publish.ps1                 # 작은 실행 파일 (.NET 10 Desktop Runtime 필요 — VS 2026 깔려 있으면 이미 있음)
 #     .\tools\publish.ps1 -SelfContained  # .NET 설치 없이 도는 실행 파일 (용량 큼)
@@ -17,12 +19,17 @@ $root = Split-Path -Parent $PSScriptRoot
 $out = Join-Path $root 'publish'
 $requiredSdkMajor = 10   # Directory.Build.props 의 MacroPadDotNet(net10.0) 과 맞춤
 
-# 탐색기에서 "PowerShell에서 실행"으로 띄우면 끝나자마자 창이 닫혀서 오류를 읽을 수 없음 → 그때만 멈춤
+# 탐색기에서 띄우면("PowerShell에서 실행" 또는 publish.cmd 더블클릭) 끝나자마자 창이 닫혀서 오류를 읽을 수 없음 → 그때만 멈춤
 function Test-LaunchedFromExplorer {
     try {
-        $parentId = (Get-CimInstance Win32_Process -Filter "ProcessId=$PID").ParentProcessId
-        $parent = Get-Process -Id $parentId -ErrorAction Stop
-        return $parent.ProcessName -eq 'explorer'
+        $procId = $PID
+        for ($i = 0; $i -lt 2; $i++) {   # powershell ← explorer, 또는 powershell ← cmd(publish.cmd) ← explorer
+            $procId = (Get-CimInstance Win32_Process -Filter "ProcessId=$procId").ParentProcessId
+            $name = (Get-Process -Id $procId -ErrorAction Stop).ProcessName
+            if ($name -eq 'explorer') { return $true }
+            if ($name -ne 'cmd') { return $false }
+        }
+        return $false
     } catch {
         return $false
     }
