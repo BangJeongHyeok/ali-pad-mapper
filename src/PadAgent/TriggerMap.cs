@@ -50,6 +50,8 @@ internal sealed class TriggerMap
 
                 // F13~F24 가 아닌 일반 키를 트리거로 쓰면 원래 키보드 입력까지 가로챔
                 bool isF13to24 = vk is >= 0x7C and <= 0x87;
+                if (action.IsCueSet && chord.Modifiers.Count > 0)
+                    problems.Add($"주의: 큐 지정 키 \"{name}\" 에 수식 키가 있어서 누르고 있는 동안 동작하지 않을 수 있어. f13~f24 하나만 쓰는 걸 권장해.");
                 if (!isF13to24 && chord.Modifiers.Count == 0)
                     problems.Add($"주의: \"{name}\" 은 일반 키보드에도 있는 키라서, 원래 키보드에서 누를 때도 가로채져.");
             }

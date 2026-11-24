@@ -127,10 +127,25 @@ public sealed class ActionConfig
     /// <summary>seek: 노브를 빨리 돌리면 한 칸에 더 크게 이동 (생략하면 켬)</summary>
     public bool? SeekAccel { get; set; }
 
+    /// <summary>
+    /// 샘플 큐 번호 (1~99). 누르면 이 큐에 저장해 둔 재생 위치로 이동.
+    /// 큐 지정 키(cueSet)를 누른 채로 누르면 지금 위치를 저장. 비어 있는 큐는 그냥 눌러도 저장.
+    /// </summary>
+    public int? Cue { get; set; }
+
+    /// <summary>
+    /// 큐 지정 키 (펑션 키): 누른 채로 샘플 큐 키를 누르면 그 큐에 지금 재생 위치를 저장.
+    /// 짧게 톡 누르면 다음에 누르는 큐 키 한 번만 저장. 트리거는 수식 키 없는 F13~F24 여야 함 (패드가 누르고 있을 수 있게).
+    /// </summary>
+    public bool? CueSet { get; set; }
+
     public const int DefaultDelayMs = 40;
 
     /// <summary>seek 한 번에 이동할 수 있는 최대 초 (10분)</summary>
     public const double MaxSeekSeconds = 600;
+
+    /// <summary>샘플 큐 번호 최대값</summary>
+    public const int MaxCue = 99;
 
     [JsonIgnore] public int EffectiveDelayMs => Math.Clamp(DelayMs ?? DefaultDelayMs, 0, 5000);
 
@@ -139,13 +154,21 @@ public sealed class ActionConfig
     /// <summary>재생 위치 이동 동작인지</summary>
     [JsonIgnore] public bool HasSeek => Seek is not null;
 
-    /// <summary>run / keys / text / seek 가 모두 비어 있는지</summary>
+    /// <summary>샘플 큐 키인지</summary>
+    [JsonIgnore] public bool HasCue => Cue is not null;
+
+    /// <summary>큐 지정 키(펑션)인지</summary>
+    [JsonIgnore] public bool IsCueSet => CueSet == true;
+
+    /// <summary>run / keys / text / seek / cue / cueSet 이 모두 비어 있는지</summary>
     [JsonIgnore]
     public bool IsEmpty =>
         string.IsNullOrWhiteSpace(Run)
         && (Keys is null || Keys.All(string.IsNullOrWhiteSpace))
         && string.IsNullOrEmpty(Text)
-        && Seek is null;
+        && Seek is null
+        && Cue is null
+        && !IsCueSet;
 
     public ActionConfig Clone() => new()
     {
@@ -157,6 +180,8 @@ public sealed class ActionConfig
         DelayMs = DelayMs,
         Seek = Seek,
         SeekAccel = SeekAccel,
+        Cue = Cue,
+        CueSet = CueSet,
     };
 
     /// <summary>
@@ -180,8 +205,14 @@ public sealed class ActionConfig
         if (Seek is { } seek && (!double.IsFinite(seek) || seek == 0 || Math.Abs(seek) > MaxSeekSeconds))
             throw new FormatException($"seek 는 0이 아닌 -{MaxSeekSeconds}~{MaxSeekSeconds} 사이 초여야 해. (지금: {seek})");
 
-        if (string.IsNullOrWhiteSpace(Run) && chords.Count == 0 && string.IsNullOrEmpty(Text) && Seek is null)
-            throw new FormatException("run / keys / text / seek 중 하나는 있어야 해.");
+        if (Cue is { } cue && (cue < 1 || cue > MaxCue))
+            throw new FormatException($"cue 는 1~{MaxCue} 사이 번호여야 해. (지금: {cue})");
+
+        if (Cue is not null && IsCueSet)
+            throw new FormatException("cue 와 cueSet 은 한 키에 같이 쓸 수 없어.");
+
+        if (string.IsNullOrWhiteSpace(Run) && chords.Count == 0 && string.IsNullOrEmpty(Text) && Seek is null && Cue is null && !IsCueSet)
+            throw new FormatException("run / keys / text / seek / cue / cueSet 중 하나는 있어야 해.");
 
         return chords;
     }

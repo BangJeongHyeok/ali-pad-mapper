@@ -26,20 +26,53 @@ internal sealed class MediaSeeker
         // 가속은 칸이 들어온 시각 기준으로 (뒤의 await 로 늦어지기 전에)
         var delta = _tracker.Step(DateTimeOffset.Now, seconds, accel);
 
+        var (session, timeline) = await CurrentAsync();
+        var target = _tracker.Target(DateTimeOffset.Now, session.SourceAppUserModelId ?? "", timeline, delta);
+        await MoveAsync(session, target);
+
+        if (!describe) return "";
+        return string.Join(" · ", new[] { AppName(session.SourceAppUserModelId), await TitleAsync(session), SeekTracker.Format(target) }
+            .Where(s => s.Length > 0));
+    }
+
+    /// <summary>
+    /// at 시점의 재생 위치 (샘플 큐 저장용). at 은 키가 눌린 시각 — 미디어 제어에 연결하느라 늦어져도
+    /// 누른 순간의 위치를 저장하도록 그 시각 기준으로 계산.
+    /// </summary>
+    public async Task<CuePoint> CaptureAsync(DateTimeOffset at)
+    {
+        var (session, timeline) = await CurrentAsync();
+        var source = session.SourceAppUserModelId ?? "";
+        return new CuePoint(_tracker.Current(at, source, timeline), AppName(source), await TitleAsync(session));
+    }
+
+    /// <summary>정한 위치로 이동 (샘플 큐). 실제로 이동한 위치를 돌려줌 (곡 길이에 맞춰 잘릴 수 있음).</summary>
+    public async Task<TimeSpan> JumpAsync(TimeSpan position)
+    {
+        var (session, timeline) = await CurrentAsync();
+        var target = _tracker.JumpTo(DateTimeOffset.Now, session.SourceAppUserModelId ?? "", timeline, position);
+        await MoveAsync(session, target);
+        return target;
+    }
+
+    private async Task<(GlobalSystemMediaTransportControlsSession Session, MediaTimeline Timeline)> CurrentAsync()
+    {
         var manager = await GetManagerAsync();
         var session = PickSession(manager)
             ?? throw new InvalidOperationException("지금 재생 중인 미디어를 찾지 못했어요. 유튜브 등을 먼저 재생해 주세요.");
 
-        var app = AppName(session.SourceAppUserModelId);
         var info = session.GetPlaybackInfo();
         var tl = session.GetTimelineProperties();
         var timeline = new MediaTimeline(
             tl.Position, tl.LastUpdatedTime,
             info?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing,
             tl.StartTime, tl.EndTime, tl.MinSeekTime, tl.MaxSeekTime);
+        return (session, timeline);
+    }
 
-        var target = _tracker.Target(DateTimeOffset.Now, session.SourceAppUserModelId ?? "", timeline, delta);
-
+    private async Task MoveAsync(GlobalSystemMediaTransportControlsSession session, TimeSpan target)
+    {
+        var app = AppName(session.SourceAppUserModelId);
         bool ok;
         try
         {
@@ -56,20 +89,19 @@ internal sealed class MediaSeeker
             _tracker.Forget();
             throw new InvalidOperationException($"{app}이(가) 재생 위치 이동을 받아 주지 않았어요. 이 앱은 지원하지 않는 것 같아요.");
         }
+    }
 
-        if (!describe) return "";
-
-        var title = "";
+    private static async Task<string> TitleAsync(GlobalSystemMediaTransportControlsSession session)
+    {
         try
         {
             var props = await session.TryGetMediaPropertiesAsync();
-            title = props?.Title ?? "";
+            return props?.Title ?? "";
         }
         catch
         {
-            // 제목은 없어도 됨
+            return ""; // 제목은 없어도 됨
         }
-        return string.Join(" · ", new[] { app, title, SeekTracker.Format(target) }.Where(s => s.Length > 0));
     }
 
     private async Task<GlobalSystemMediaTransportControlsSessionManager> GetManagerAsync()

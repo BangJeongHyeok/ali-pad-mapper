@@ -49,6 +49,8 @@ const ICONS = {
   rewind: '<path d="M11.5 6.5v11L4 12z"/><path d="M20 6.5v11L12.5 12z"/>',
   forward: '<path d="M12.5 6.5v11L20 12z"/><path d="M4 6.5v11L11.5 12z"/>',
   seek: '<path d="M9.5 7v10L3.5 12z"/><path d="M14.5 7v10l6-5z"/>',
+  cue: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M10 9v6l5-3z"/>',
+  fn: '<rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="M8 15V9h3M8 12h2.5M13.5 15V9.5l3 5.5V9"/>',
 };
 
 const icon = (name) =>
@@ -239,6 +241,8 @@ function capInfo(slot) {
       if (pc.mode === 'web') return { icon: 'globe', text: pc.runName || pc.run, cls: 'assigned pc' };
       if (pc.mode === 'pckeys') return { icon: 'command', text: prettySeq((pc.keys || []).join(', ')), cls: 'assigned pc' };
       if (pc.mode === 'seek') return { icon: pc.seek < 0 ? 'rewind' : 'forward', text: seekText(pc.seek), cls: 'assigned pc' };
+      if (pc.mode === 'cue') return { icon: 'cue', text: `큐 ${pc.cue}`, cls: 'assigned pc' };
+      if (pc.mode === 'cueset') return { icon: 'fn', text: '큐 지정 키', cls: 'assigned pc' };
       const t = (pc.text || '').replace(/\s+/g, ' ');
       return { icon: 'type', text: `“${t.length > 14 ? t.slice(0, 13) + '…' : t}”`, cls: 'assigned pc' };
     }
@@ -251,7 +255,7 @@ function kindText(slot) {
     case 'empty': return '할당 안 함';
     case 'media': return '미디어';
     case 'keys': return '키보드 단축키';
-    case 'pc': return { app: '프로그램 열기', web: '웹사이트 열기', text: '문장 입력', pckeys: '단축키 묶음 (PC)', seek: '재생 위치 이동' }[slot.pc.mode];
+    case 'pc': return { app: '프로그램 열기', web: '웹사이트 열기', text: '문장 입력', pckeys: '단축키 묶음 (PC)', seek: '재생 위치 이동', cue: '샘플 큐', cueset: '큐 지정 키 (펑션)' }[slot.pc.mode];
     default: return '잘못된 값';
   }
 }
@@ -436,6 +440,8 @@ function renderPanelHead() {
   if (slot.type === 'keys') detail += ' · ' + prettySeq(slot.padText);
   if (slot.type === 'pc' && (slot.pc.mode === 'app' || slot.pc.mode === 'web')) detail = slot.pc.run;
   if (slot.type === 'pc' && slot.pc.mode === 'seek') detail = `지금 재생 중인 곡 · 빨리 돌리면 더 많이 ${slot.pc.seekAccel ? '켬' : '끔'}`;
+  if (slot.type === 'pc' && slot.pc.mode === 'cue') detail = '누르면 저장한 위치로 이동 · 큐 지정 키를 누른 채로 누르면 지금 위치 저장';
+  if (slot.type === 'pc' && slot.pc.mode === 'cueset') detail = '누른 채로 샘플 큐 키를 누르면 그 키에 지금 위치를 저장';
   if (slot.type === 'empty' && slot.padRecord) detail = `패드에 남아 있는 값: ${slot.padRecord.source}`;
   if (slot.type === 'invalid') detail = slot.error;
 
@@ -458,7 +464,12 @@ function optionGroups() {
     { title: null, items: [{ id: 'empty', label: '할당 안 함', desc: '패드에 원래 있던 값을 그대로 둬요', icon: 'slash', value: { type: 'empty' } }] },
     {
       title: '미디어',
-      items: [...media, { id: 'custom:seek', label: '재생 위치 이동', desc: '유튜브·유튜브 뮤직 등 재생 중인 곡을 앞뒤로 (노브에 추천)', icon: 'seek', tag: 'pc', keywords: '탐색 감기 되감기 seek 턴테이블' }],
+      items: [
+        ...media,
+        { id: 'custom:seek', label: '재생 위치 이동', desc: '유튜브·유튜브 뮤직 등 재생 중인 곡을 앞뒤로 (노브에 추천)', icon: 'seek', tag: 'pc', keywords: '탐색 감기 되감기 seek 턴테이블' },
+        { id: 'custom:cue', label: '샘플 큐', desc: '저장해 둔 재생 위치로 순간 이동 (샘플러처럼)', icon: 'cue', tag: 'pc', keywords: '큐 cue 핫큐 hot 샘플 샘플링 샘플러 점프 구간 위치 저장' },
+        { id: 'custom:cueset', label: '큐 지정 키 (펑션)', desc: '누른 채로 샘플 큐 키를 누르면 지금 위치를 저장', icon: 'fn', tag: 'pc', keywords: '큐 cue 펑션 fn function 샘플 샘플링 지정 저장 shift' },
+      ],
     },
     {
       title: '자주 쓰는 단축키',
@@ -535,12 +546,13 @@ async function onOptionClick(item, el) {
     if (ok) updatePanelMarks();
     return;
   }
-  // 재생 위치 이동은 기본값만으로도 쓸 수 있어서 고르면 바로 적용
-  if (item.id === 'custom:seek') {
+  // 재생 위치 이동·샘플 큐·큐 지정 키는 기본값만으로도 쓸 수 있어서 고르면 바로 적용
+  const instant = { 'custom:seek': (slot) => applySeek(seekDefaults(slot)), 'custom:cue': () => applyCue(nextFreeCue()), 'custom:cueset': () => setSlot({ type: 'pc', mode: 'cueset' }) };
+  if (instant[item.id]) {
     const slot = slotById(ui.selected);
     if (currentOptionId(slot) !== item.id) {
       ui.expanded = item.id;
-      if (await applySeek(seekDefaults(slot))) buildPanelBody();
+      if (await instant[item.id](slot)) buildPanelBody();
       else updatePanelMarks();
       return;
     }
@@ -550,7 +562,7 @@ async function onOptionClick(item, el) {
   updatePanelMarks();
   if (ui.expanded) {
     const first = el.querySelector('.recorder, input, textarea');
-    if (first && item.id !== 'custom:seek') setTimeout(() => first.focus(), 30);
+    if (first && !instant[item.id]) setTimeout(() => first.focus(), 30);
   }
 }
 
@@ -628,6 +640,32 @@ function customBody(id, slot) {
         <div class="field test-row"><button class="btn small" data-act="test">${icon('play')}<span>지금 해 보기</span></button>
           <span class="test-result" data-role="result"></span></div>
         <div class="help">크롬 유튜브, 유튜브 뮤직 앱처럼 지금 재생 중인 곡을 움직여요. 그 창이 앞에 없어도 되고, 유튜브 키보드 단축키(5초)보다 잘게 움직일 수 있어요.</div>
+        ${err}`;
+    }
+    case 'custom:cue': {
+      const cur = same('cue') ? pc.cue : null;
+      const used = usedCues(slot);
+      const hasSet = S.slots.some((s) => s.layer === slot.layer && s.type === 'pc' && s.pc.mode === 'cueset');
+      return `<div class="field"><label>큐 번호</label>
+          <div class="chips cue-chips" data-role="chips">${CUE_NUMBERS.map((n) => `<button class="chip${n === cur ? ' active' : ''}${used.has(n) ? ' used' : ''}" data-v="${n}"
+              title="${used.has(n) ? '다른 칸에서도 쓰는 번호예요 (같은 위치로 이동)' : ''}">${n}</button>`).join('')}</div>
+          <div class="help">같은 번호를 여러 칸에 넣으면 같은 위치를 함께 써요.</div></div>
+        <div class="howto">
+          <div><b>저장</b> 큐 지정 키를 누른 채로 이 칸을 누르면 지금 재생 위치가 저장돼요. 비어 있는 큐는 그냥 눌러도 저장돼요.</div>
+          <div><b>이동</b> 이 칸만 누르면 저장한 위치로 바로 이동해요.</div>
+        </div>
+        ${hasSet ? '' : `<div class="note">${icon('info')}<span>이 레이어에 아직 큐 지정 키가 없어요. 다른 칸에 <b>큐 지정 키 (펑션)</b>을 넣으면 저장한 큐를 바꿀 수 있어요.</span></div>`}
+        <div class="help">저장한 위치는 MacroPad 앱을 끄거나 트레이 메뉴의 '샘플 큐 모두 지우기'를 누를 때까지 남아요. 곡이 바뀌어도 같은 시각으로 이동해요.</div>
+        ${err}`;
+    }
+    case 'custom:cueset': {
+      const free = S.slots.filter((s) => s.layer === slot.layer && s.control === 'button' && s.type === 'empty' && s.id !== slot.id);
+      return `<div class="howto">
+          <div><b>누른 채로</b> 샘플 큐 키를 누르면 그 키에 지금 재생 위치를 저장해요 (이미 있으면 바꿔요).</div>
+          <div><b>짧게 톡</b> 누르면 3초 안에 누르는 큐 키 한 번만 저장해요. 한 번 더 톡 하면 취소.</div>
+        </div>
+        ${free.length ? `<div class="field"><button class="btn small" data-act="fill">${icon('cue')}<span>빈 버튼 ${free.length}개를 샘플 큐로 채우기</span></button></div>` : ''}
+        <div class="help">패드에는 F13~F24 중 하나가 단독으로 들어가요 (누르고 있는 동안 다른 키를 받으려고).</div>
         ${err}`;
     }
     case 'custom:pckeys':
@@ -738,6 +776,30 @@ function bindCustom(id, body, slot) {
     return;
   }
 
+  if (id === 'custom:cue') {
+    body.querySelectorAll('[data-role="chips"] .chip').forEach((c) => c.addEventListener('click', async () => {
+      if (await applyCue(+c.dataset.v, errorEl)) buildPanelBody();
+    }));
+    return;
+  }
+
+  if (id === 'custom:cueset') {
+    const fill = body.querySelector('[data-act="fill"]');
+    if (fill) fill.addEventListener('click', async () => {
+      fill.disabled = true;
+      const layer = slot.layer;
+      const targets = S.slots.filter((s) => s.layer === layer && s.control === 'button' && s.type === 'empty' && s.id !== slot.id).map((s) => s.id);
+      let n = 0;
+      for (const id2 of targets) {
+        if (!(await setSlot({ type: 'pc', mode: 'cue', cue: nextFreeCue(layer) }, errorEl, id2))) break;
+        n++;
+      }
+      if (n) toast(`빈 버튼 ${n}개에 샘플 큐를 넣었어요. [패드에 적용]을 눌러 주세요.`, 'ok');
+      buildPanelBody();
+    });
+    return;
+  }
+
   if (id === 'custom:text') {
     const text = body.querySelector('[data-role="text"]');
     const apply = () => text.value && setSlot({ type: 'pc', mode: 'text', text: text.value }, errorEl);
@@ -787,6 +849,23 @@ async function applySeek(v, errorEl, forceMirror = false) {
   if (await setSlot(value(!v.back), null, mirror.id)) toast(`${mirror.position}에는 '${seekText(target)}'를 넣었어요.`);
   return true;
 }
+
+// ─────────────── 샘플 큐 ───────────────
+
+const CUE_NUMBERS = Array.from({ length: 12 }, (_, i) => i + 1);
+
+/** 이 레이어에서 slot 말고 다른 칸이 쓰는 큐 번호 */
+const usedCues = (slot, layer = slot ? slot.layer : ui.layer) =>
+  new Set(S.slots.filter((s) => s.layer === layer && (!slot || s.id !== slot.id) && s.type === 'pc' && s.pc.mode === 'cue').map((s) => s.pc.cue));
+
+/** 이 레이어에서 아직 안 쓰는 가장 작은 큐 번호 */
+function nextFreeCue(layer = ui.layer) {
+  const used = usedCues(null, layer);
+  for (let n = 1; n <= 99; n++) if (!used.has(n)) return n;
+  return 1;
+}
+
+const applyCue = (n, errorEl) => setSlot({ type: 'pc', mode: 'cue', cue: n }, errorEl);
 
 /** Enter 또는 포커스를 벗어날 때 적용 (값이 바뀐 경우만) */
 function onCommit(input, fn) {

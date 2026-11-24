@@ -49,6 +49,12 @@ public static class SlotDisplay
         if (action.Seek is { } seek)
             parts.Add("[이동] " + SeekTracker.Describe(seek));
 
+        if (action.Cue is { } cue)
+            parts.Add($"[큐] {cue}");
+
+        if (action.IsCueSet)
+            parts.Add("[큐 지정 키]");
+
         return parts.Count == 0 ? "[PC 동작]" : string.Join(" ", parts);
     }
 

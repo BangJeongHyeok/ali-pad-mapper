@@ -60,7 +60,21 @@ public sealed class SeekTracker
     /// <summary>
     /// 이동할 목표 위치. source 는 재생 중인 앱 구분용 (앱이 바뀌면 기억한 위치를 버림).
     /// </summary>
-    public TimeSpan Target(DateTimeOffset now, string source, MediaTimeline timeline, double deltaSeconds)
+    public TimeSpan Target(DateTimeOffset now, string source, MediaTimeline timeline, double deltaSeconds) =>
+        Remember(now, source, Clamp(Current(now, source, timeline) + TimeSpan.FromSeconds(deltaSeconds), timeline));
+
+    /// <summary>
+    /// 정한 위치로 바로 이동할 목표 (샘플 큐). 곡 길이 안으로 맞추고, 이어서 노브로 감거나
+    /// 큐를 다시 저장할 때 이 위치를 기준으로 삼도록 기억해 둠.
+    /// </summary>
+    public TimeSpan JumpTo(DateTimeOffset now, string source, MediaTimeline timeline, TimeSpan position) =>
+        Remember(now, source, Clamp(position, timeline));
+
+    /// <summary>
+    /// now 시점의 재생 위치 추정 (상태는 안 바꿈).
+    /// 방금 이동시킨 직후면 플레이어가 아직 새 위치를 알려주지 않았을 수 있어서 직전 목표 위치를 기준으로 계산.
+    /// </summary>
+    public TimeSpan Current(DateTimeOffset now, string source, MediaTimeline timeline)
     {
         TimeSpan current;
         var sinceTarget = now - _targetAt;
@@ -76,9 +90,11 @@ public sealed class SeekTracker
             if (timeline.IsPlaying && age > TimeSpan.Zero && age < TimeSpan.FromHours(12))
                 current += age;
         }
+        return current < TimeSpan.Zero ? TimeSpan.Zero : current;
+    }
 
-        var target = Clamp(current + TimeSpan.FromSeconds(deltaSeconds), timeline);
-
+    private TimeSpan Remember(DateTimeOffset now, string source, TimeSpan target)
+    {
         _source = source;
         _target = target;
         _targetAt = now;

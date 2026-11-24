@@ -132,14 +132,19 @@ public sealed class ConfigEditor
     {
         _ = action.ParseKeys(); // 검사만
 
-        if (Get(slot) is PcActionSlot existing && CountSlotsUsing(existing.Trigger) == 1)
+        // 큐 지정 키는 누르고 있는 동안 다른 키를 받아야 해서 수식 키 없는 F13~F24 만 씀
+        // (수식 키가 붙으면 패드가 연속 입력으로 보내서 바로 떼 버리고, 같이 누른 큐 키에도 수식 키가 섞임)
+        var plainOnly = action.IsCueSet;
+
+        if (Get(slot) is PcActionSlot existing && CountSlotsUsing(existing.Trigger) == 1
+            && (!plainOnly || IsPlainTrigger(existing.Trigger)))
         {
             Config.Actions[existing.Trigger] = action;
             IsDirty = true;
             return existing.Trigger;
         }
 
-        var trigger = AllocateTrigger();
+        var trigger = AllocateTrigger(plainOnly);
         Config.Actions[trigger] = action;
         Replace(slot, trigger);
         return trigger;
@@ -174,7 +179,7 @@ public sealed class ConfigEditor
                 yield return $"{p}f{f}";
     }
 
-    private string AllocateTrigger()
+    private string AllocateTrigger(bool plainOnly = false)
     {
         var used = new HashSet<string>(StringComparer.Ordinal);
         foreach (var k in Config.Actions.Keys)
@@ -183,11 +188,16 @@ public sealed class ConfigEditor
             if (TriggerId(Config.GetText(s)) is { } id) used.Add(id);
 
         foreach (var candidate in TriggerCandidates())
-            if (!used.Contains(TriggerId(candidate)!))
+            if ((!plainOnly || IsPlainTrigger(candidate)) && !used.Contains(TriggerId(candidate)!))
                 return candidate;
 
-        throw new FormatException("자동으로 배정할 트리거 키가 다 떨어졌어. (최대 48개)");
+        throw new FormatException(plainOnly
+            ? "큐 지정 키에 쓸 F13~F24 가 다 쓰였어요. 다른 PC 동작 하나를 지우고 다시 해 주세요."
+            : "자동으로 배정할 트리거 키가 다 떨어졌어. (최대 48개)");
     }
+
+    /// <summary>수식 키 없는 키 하나인지 ("f13" 은 true, "shift+f13" 은 false)</summary>
+    public static bool IsPlainTrigger(string trigger) => TriggerId(trigger) is { } id && id.StartsWith("0:", StringComparison.Ordinal);
 
     private int CountSlotsUsing(string trigger)
     {
