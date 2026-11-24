@@ -131,13 +131,17 @@ internal sealed class ActionRunner
         var mode = _cues.Press(at, cue);
         try
         {
-            if (mode == CuePress.Set)
+            if (mode is CuePress.Set or CuePress.SetEmpty)
             {
                 var point = await MediaSeeker.Shared.CaptureAsync(at);
                 _cues.Store(cue, point);
-                var title = point.Title.Length > 0 ? $" · {point.Title}" : "";
                 AgentLog.Write($"[{trigger.Name}] 큐 {cue} 저장: {SeekTracker.Format(point.Position)}");
-                _onInfo($"큐 {cue} ← {SeekTracker.Format(point.Position)}{title}");
+                // 알림은 큐 지정 키로 저장할 때만. 큐 키만 누른 건 '실행'이라 비어 있어 저장돼도 조용히
+                if (mode == CuePress.Set)
+                {
+                    var title = point.Title.Length > 0 ? $" · {point.Title}" : "";
+                    _onInfo($"큐 {cue} ← {SeekTracker.Format(point.Position)}{title}");
+                }
             }
             else if (_cues.TryGet(cue, out var point))
             {
@@ -146,7 +150,7 @@ internal sealed class ActionRunner
         }
         catch (Exception ex)
         {
-            MediaFail(trigger, mode == CuePress.Set ? $"큐 {cue} 저장 실패" : $"큐 {cue} 이동 실패", ex);
+            MediaFail(trigger, mode != CuePress.Jump ? $"큐 {cue} 저장 실패" : $"큐 {cue} 이동 실패", ex);
         }
     }
 

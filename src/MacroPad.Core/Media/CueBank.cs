@@ -12,8 +12,11 @@ public enum CuePress
     /// <summary>저장해 둔 위치로 이동</summary>
     Jump,
 
-    /// <summary>지금 위치를 이 큐에 저장</summary>
+    /// <summary>큐 지정 키로 지금 위치를 이 큐에 저장 (알림으로 알려줌)</summary>
     Set,
+
+    /// <summary>큐 키만 눌렀는데 비어 있어서 지금 위치를 저장 (사용자에겐 '실행'이라 조용히)</summary>
+    SetEmpty,
 }
 
 /// <summary>
@@ -102,7 +105,7 @@ public sealed class CueBank
         }
 
         _armedUntil = null;
-        return _points.ContainsKey(cue) ? CuePress.Jump : CuePress.Set;
+        return _points.ContainsKey(cue) ? CuePress.Jump : CuePress.SetEmpty;
     }
 
     public void Store(int cue, CuePoint point) => _points[cue] = point;

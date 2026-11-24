@@ -24,10 +24,14 @@ public sealed class CueTests : IDisposable
     public void EmptyCue_IsSetOnFirstPress_ThenJumps()
     {
         var bank = new CueBank();
-        Assert.Equal(CuePress.Set, bank.Press(T0, 1));
+        Assert.Equal(CuePress.SetEmpty, bank.Press(T0, 1));
         bank.Store(1, P);
         Assert.Equal(CuePress.Jump, bank.Press(T0.AddSeconds(1), 1));
-        Assert.Equal(CuePress.Set, bank.Press(T0.AddSeconds(2), 2)); // 다른 큐는 아직 비어 있음
+        Assert.Equal(CuePress.SetEmpty, bank.Press(T0.AddSeconds(2), 2)); // 다른 큐는 아직 비어 있음
+
+        // 큐 지정 키로 저장하면 비어 있어도 Set (알림 대상)
+        bank.SetKeyDown(T0.AddSeconds(3));
+        Assert.Equal(CuePress.Set, bank.Press(T0.AddSeconds(3.5), 3));
     }
 
     [Fact]
