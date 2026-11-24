@@ -113,7 +113,7 @@ cd ali-pad-mapper
 |---|---|
 | `PadAgent.exe` | **MacroPad 앱** (편집기 + 트레이). 이 파일을 실행하면 됩니다 |
 | `PadFlasher.exe` | 명령줄 도구 (선택) |
-| `macropad.json` | 설정 파일 (아래 참고) |
+| `macropad.example.json` | 설정 예시. 처음 실행할 때 `macropad.json` 으로 복사됩니다 |
 
 - .NET 런타임이 없는 PC에서 쓰려면 `.\tools\publish.ps1 -SelfContained` (파일이 커지는 대신 설치 없이 실행)
 - 빌드 없이 바로 띄워 보려면 `dotnet run --project src/PadAgent`
@@ -248,7 +248,10 @@ macropad.json
 편집기가 알아서 관리하지만 직접 고쳐도 됩니다 (주석 `//` 가능). 앱은 저장을 감지해서 바로 다시 읽습니다.
 
 **어느 파일을 쓰나**: `--config <경로>` 로 지정 → 실행 파일 위쪽 폴더에 `MacroPad.sln` 이 있으면 그 옆
-→ 실행 파일 옆. 그래서 레포 안의 `publish` 폴더에서 실행하면 레포의 `macropad.json` 하나를 계속 씁니다.
+→ 실행 파일 옆. 그래서 레포 안의 `publish` 폴더에서 실행하면 레포 폴더의 `macropad.json` 하나를 계속 씁니다.
+
+`macropad.json` 은 버튼 배치·프로그램 경로·문구가 들어가는 **개인 설정이라 git 에 올리지 않습니다** (`.gitignore`).
+레포에는 예시 `macropad.example.json` 만 있고, `macropad.json` 이 없으면 처음 실행할 때 예시를 복사해서 만듭니다.
 편집기로 처음 저장하면 주석이 사라지고, 원래 파일은 `macropad.json.bak` 으로 백업됩니다.
 
 ### 패드 칸 (`layers`)

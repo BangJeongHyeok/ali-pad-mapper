@@ -23,7 +23,11 @@ var work = Path.Combine(Path.GetTempPath(), "macropad-ui-preview");
 Directory.CreateDirectory(work);
 var configPath = Path.Combine(work, "macropad.json");
 if (!File.Exists(configPath))
-    File.Copy(Path.Combine(root, "macropad.json"), configPath);
+{
+    // 내 설정이 있으면 그걸, 없으면 예시를 복사 (원본은 건드리지 않음)
+    var mine = Path.Combine(root, "macropad.json");
+    File.Copy(File.Exists(mine) ? mine : Path.Combine(root, "macropad.example.json"), configPath);
+}
 
 var platform = new PreviewPlatform { Connected = connected };
 var session = new EditorSession(configPath, platform, Path.Combine(work, "pad-state.json"));

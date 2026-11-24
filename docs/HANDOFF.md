@@ -105,7 +105,7 @@
 ```
 MacroPad.sln
 Directory.Build.props        공통 설정 (MacroPadDotNet = net10.0)
-macropad.json                메인 설정 (JSONC)
+macropad.example.json        설정 예시 (JSONC). 실제 설정 macropad.json 은 개인 데이터라 .gitignore, 없으면 예시를 복사해 만듦
 configs/
   00-factory-default.json    공장 초기값 복원
   01-top-knob-test.json      첫 테스트용 (위 노브만)
@@ -231,7 +231,7 @@ macropad.json ─ layers ─▶ UploadPlan(.OnlyChanged) ─▶ K8850Protocol �
 ## 8. 공유 / 배포 시 개인정보 체크
 
 - 편집기 백업/임시 파일(`*.bak`, `*.tmp`)은 `.gitignore`로 제외
-- `macropad.json` 은 레포에 포함된 파일이라, 편집기로 개인 경로/문구를 넣으면 커밋 전에 확인
+- `macropad.json` 은 `.gitignore` 로 제외 (레포에는 `macropad.example.json` 만). 예시를 고칠 때 개인 경로/문구를 넣지 않기
 
 - 소스·설정 파일에는 개인정보 없음
 - 단, **사용자 PC에서 빌드한 결과물**에는 로컬 경로(예: `C:\Users\<사용자>\…`)가 들어감

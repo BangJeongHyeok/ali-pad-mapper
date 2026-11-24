@@ -17,7 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\..\macropad.json" Link="TestConfigs\macropad.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\macropad.example.json" Link="TestConfigs\macropad.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\configs\*.json" LinkBase="TestConfigs" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
