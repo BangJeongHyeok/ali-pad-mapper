@@ -15,6 +15,43 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $out = Join-Path $root 'publish'
+$requiredSdkMajor = 10   # Directory.Build.props 의 MacroPadDotNet(net10.0) 과 맞춤
+
+# 탐색기에서 "PowerShell에서 실행"으로 띄우면 끝나자마자 창이 닫혀서 오류를 읽을 수 없음 → 그때만 멈춤
+function Test-LaunchedFromExplorer {
+    try {
+        $parentId = (Get-CimInstance Win32_Process -Filter "ProcessId=$PID").ParentProcessId
+        $parent = Get-Process -Id $parentId -ErrorAction Stop
+        return $parent.ProcessName -eq 'explorer'
+    } catch {
+        return $false
+    }
+}
+$pauseAtEnd = -not $env:CI -and (Test-LaunchedFromExplorer)
+
+function Assert-DotNetSdk {
+    if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
+        throw @"
+'dotnet' 명령을 찾을 수 없습니다.
+  1) .NET $requiredSdkMajor SDK 를 설치하십시오: https://dotnet.microsoft.com/download/dotnet/$requiredSdkMajor.0
+     (오른쪽 'Runtime' 이 아니라 왼쪽 'SDK' 를 받아야 합니다)
+  2) 설치 후 PowerShell 창을 새로 열고 다시 실행하십시오.
+"@
+    }
+
+    $sdks = @(& dotnet --list-sdks)
+    $majors = @($sdks | ForEach-Object { if ($_ -match '^(\d+)\.') { [int]$Matches[1] } })
+    if (-not ($majors | Where-Object { $_ -ge $requiredSdkMajor })) {
+        $found = if ($sdks.Count) { ($sdks | ForEach-Object { "    $_" }) -join "`n" } else { '    (없음 — Runtime 만 설치된 상태입니다)' }
+        throw @"
+.NET $requiredSdkMajor SDK 가 없습니다. 실행 파일을 만들려면 Runtime 이 아니라 SDK 가 필요합니다.
+  설치된 SDK:
+$found
+  다운로드: https://dotnet.microsoft.com/download/dotnet/$requiredSdkMajor.0  (왼쪽 'SDK' 의 Windows x64 설치 관리자)
+  설치 후 PowerShell 창을 새로 열고 다시 실행하십시오.
+"@
+    }
+}
 
 $common = @(
     '-c', 'Release',
@@ -26,11 +63,27 @@ $common = @(
     '--self-contained', $SelfContained.IsPresent.ToString().ToLower()
 )
 
-dotnet publish (Join-Path $root 'src\PadAgent\PadAgent.csproj') @common
-if ($LASTEXITCODE -ne 0) { throw "PadAgent publish 실패" }
+$failed = $false
+try {
+    Assert-DotNetSdk
 
-dotnet publish (Join-Path $root 'src\PadFlasher\PadFlasher.csproj') @common
-if ($LASTEXITCODE -ne 0) { throw "PadFlasher publish 실패" }
+    dotnet publish (Join-Path $root 'src\PadAgent\PadAgent.csproj') @common
+    if ($LASTEXITCODE -ne 0) { throw "PadAgent publish 실패 (위쪽 빨간 error 줄을 확인하십시오)" }
 
-Write-Host ""
-Write-Host "완료: $out" -ForegroundColor Green
+    dotnet publish (Join-Path $root 'src\PadFlasher\PadFlasher.csproj') @common
+    if ($LASTEXITCODE -ne 0) { throw "PadFlasher publish 실패 (위쪽 빨간 error 줄을 확인하십시오)" }
+
+    Write-Host ""
+    Write-Host "완료: $out" -ForegroundColor Green
+} catch {
+    $failed = $true
+    Write-Host ""
+    Write-Host $_.Exception.Message -ForegroundColor Red
+} finally {
+    if ($pauseAtEnd) {
+        Write-Host ""
+        Read-Host "Enter 를 누르면 창이 닫힙니다" | Out-Null
+    }
+}
+
+if ($failed) { exit 1 }
